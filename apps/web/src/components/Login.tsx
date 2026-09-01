@@ -5,8 +5,9 @@ import { db } from '../db/db';
 import { BigButton, Card } from './ui';
 
 interface AuthResponse {
-  token: string;
-  user: { id: string; display_name: string; avatar_color: string };
+  mode: 'signin' | 'claim' | 'needs_name';
+  token?: string;
+  user?: { id: string; display_name: string; avatar_color: string };
 }
 
 export function Login({ onSignedIn }: { onSignedIn: () => void }) {
@@ -16,7 +17,7 @@ export function Login({ onSignedIn }: { onSignedIn: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const finish = (result: AuthResponse) => {
+  const finish = (result: Required<Pick<AuthResponse, 'token' | 'user'>>) => {
     const session: Session = {
       token: result.token,
       user_id: result.user.id,
@@ -30,52 +31,40 @@ export function Login({ onSignedIn }: { onSignedIn: () => void }) {
   const submit = async () => {
     setBusy(true);
     setError(null);
-    const trimmed = code.trim().toUpperCase();
 
     try {
       /*
-       * Try the reusable sign-in code first. Neither of them should have to
-       * know which kind of code they are holding, and this is the path that
-       * runs every time the app is reinstalled — iOS gives an installed web app
-       * its own storage, so a session never survives Add to Home Screen.
-       *
-       * Crucially this does NOT clear the local database: signing in again on a
-       * device that already has history must not erase it.
+       * One request. The server knows whether this is an invite or a reusable
+       * sign-in code; the client guessing would mean a wasted round trip and a
+       * guaranteed 404 in the console on every first join.
        */
-      finish(await api<AuthResponse>('/signin', {
+      const result = await api<AuthResponse>('/auth', {
         auth: false,
         method: 'POST',
-        body: JSON.stringify({ code: trimmed }),
-      }));
-      return;
-    } catch (caught) {
-      if (!(caught instanceof ApiError) || caught.status !== 404) {
-        setError(caught instanceof ApiError ? caught.message : 'could not reach the server');
+        body: JSON.stringify({
+          code: code.trim().toUpperCase(),
+          display_name: name.trim() || undefined,
+        }),
+      });
+
+      if (result.mode === 'needs_name') {
+        setNeedsName(true);
+        setError('New here? Add your name to join.');
         setBusy(false);
         return;
       }
-    }
 
-    // Not a sign-in code, so treat it as a first-time invite, which needs a name.
-    if (!name.trim()) {
-      setNeedsName(true);
-      setError('New here? Add your name to join.');
-      setBusy(false);
-      return;
-    }
+      /*
+       * Only a first claim starts clean. Signing in again on a device that
+       * already has history must not erase it — that path runs on every
+       * reinstall, because iOS gives an installed web app its own storage.
+       */
+      if (result.mode === 'claim') {
+        await db.delete();
+        await db.open();
+      }
 
-    try {
-      const result = await api<AuthResponse>('/claim', {
-        auth: false,
-        method: 'POST',
-        body: JSON.stringify({ invite_code: trimmed, display_name: name.trim() }),
-      });
-
-      // A first claim starts clean: anything logged beforehand belonged to no
-      // account and was never synced.
-      await db.delete();
-      await db.open();
-      finish(result);
+      finish(result as Required<Pick<AuthResponse, 'token' | 'user'>>);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'could not reach the server');
       setBusy(false);

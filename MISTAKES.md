@@ -294,6 +294,36 @@ shows.
 
 ---
 
+## 12. Committed with a failing check
+
+**Symptom.** `npm run check` failed and the commit went in anyway. The output
+scrolled past in the same command as the commit, and the exit status of the
+pipeline was the commit's, not the check's.
+
+**Cause.** Chaining `npm run check 2>&1 | tail -3 && git commit` reports the
+status of `tail`, which always succeeds. The check's failure was on screen and
+structurally invisible to the shell.
+
+**What was broken.** The login screen was rebuilt — "Invite code" became "Code"
+and "Join" became "Continue" — so every harness that signs in broke at once:
+smoke, twophone, phase3test, screenshot and tour.
+
+**Fix.** All five harnesses updated. The redesigned flow needed a second step
+(the name field only appears once the server says this is a first-time invite),
+so they wait for it rather than assuming a single form.
+
+**The deeper fix.** The first repair left an *expected* 404 in the console —
+the client probed `/signin`, fell back to `/claim`, and the browser logs any 404
+as an error. Rather than teach the harness to ignore errors, the two endpoints
+became one `/api/v1/auth`: the server knows which kind of code it is, so there
+is no wasted round trip and nothing to ignore. **A check that has to be taught
+to ignore things stops being a check.**
+
+**Rule.** Never pipe a verification command into `tail` and chain a commit off
+it. Run the check, read it, then commit as a separate step.
+
+---
+
 ## Toolchain snags
 
 Low-value individually; recorded so they aren't rediscovered.

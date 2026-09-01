@@ -9,7 +9,9 @@ async function phone(label){
   await p.goto(URL,{waitUntil:'networkidle'}); return {ctx,p};
 }
 async function login(p,code,name){
-  await p.getByLabel('Invite code').fill(code);
+  await p.getByLabel('Code', { exact: true }).fill(code);
+  await p.getByRole('button',{name:'Continue'}).click();
+  await p.getByLabel('Your name').waitFor({ timeout: 10000 });
   await p.getByLabel('Your name').fill(name);
   await p.getByRole('button',{name:'Join'}).click();
   await p.waitForSelector('text=streak',{timeout:15000});

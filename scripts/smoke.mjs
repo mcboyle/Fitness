@@ -142,7 +142,7 @@ async function checkOrigin(origin) {
 
   // Rows are keyed by user, so the app opens on the login screen. Each origin
   // gets its own fresh context, so each has to claim an invite of its own.
-  const codeField = page.getByLabel('Invite code');
+  const codeField = page.getByLabel('Code', { exact: true });
   if (await codeField.isVisible().catch(() => false)) {
     const code = origin === ORIGINS[0] ? inviteCode : await mintPartnerCode();
     if (!code) {
@@ -150,7 +150,11 @@ async function checkOrigin(origin) {
       await context.close();
       return;
     }
+    // The login screen tries the reusable sign-in code first and only asks for
+    // a name once it learns this is a first-time invite.
     await codeField.fill(code);
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByLabel('Your name').waitFor({ timeout: 10_000 });
     await page.getByLabel('Your name').fill('Smoke');
     await page.getByRole('button', { name: 'Join' }).click();
     await page.waitForSelector('text=streak', { timeout: 15_000 }).catch(() => {

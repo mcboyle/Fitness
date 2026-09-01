@@ -50,6 +50,10 @@ export function registerAuthRoutes(app: FastifyInstance, db: DB) {
 
     if (!user) return reply.code(404).send({ error: 'unknown or already-used invite code' });
 
+    return claim(user.id, displayName);
+  });
+
+  function claim(userId: string, displayName: string) {
     const token = mintToken();
     const signInCode = newInviteCode(10);
     const now = new Date().toISOString();
@@ -57,10 +61,10 @@ export function registerAuthRoutes(app: FastifyInstance, db: DB) {
     db.transaction(() => {
       db.prepare(
         'UPDATE users SET display_name = ?, invite_code = NULL, sign_in_code = ? WHERE id = ?',
-      ).run(displayName, signInCode, user.id);
+      ).run(displayName, signInCode, userId);
       db.prepare(
         'INSERT INTO tokens (id, user_id, hash, label, created_at) VALUES (?, ?, ?, ?, ?)',
-      ).run(newId(), user.id, hashToken(token), 'claim', now);
+      ).run(newId(), userId, hashToken(token), 'claim', now);
       db.prepare(
         `INSERT OR IGNORE INTO user_settings
            (user_id, goal_water_oz, goal_pages, goal_steps, goal_workout_minutes,
@@ -69,14 +73,54 @@ export function registerAuthRoutes(app: FastifyInstance, db: DB) {
          VALUES (@user_id, @goal_water_oz, @goal_pages, @goal_steps,
                  @goal_workout_minutes, @goal_sleep_minutes, @completion_threshold,
                  @step_entry_mode, @theme, @ring_layout, @updated_at, @server_seq)`,
-      ).run({ user_id: user.id, ...DEFAULT_SETTINGS, updated_at: now, server_seq: nextSeq(db) });
+      ).run({ user_id: userId, ...DEFAULT_SETTINGS, updated_at: now, server_seq: nextSeq(db) });
     })();
 
     const claimed = db
       .prepare('SELECT id, display_name, avatar_color, sign_in_code FROM users WHERE id = ?')
-      .get(user.id);
+      .get(userId);
 
-    return { token, user: claimed };
+    return { mode: 'claim', token, user: claimed };
+  }
+
+  /**
+   * One door for both kinds of code.
+   *
+   * The client cannot tell an invite code from a sign-in code by looking, and
+   * probing one endpoint then the other means a guaranteed 404 on every first
+   * join — which is noise in the console and an extra round trip on the slowest
+   * screen in the app. The server knows which is which, so it decides.
+   */
+  app.post<{ Body: CodeBody }>('/api/v1/auth', async (request, reply) => {
+    const code = (request.body?.code ?? request.body?.invite_code)?.trim().toUpperCase();
+    const displayName = request.body?.display_name?.trim();
+    if (!code) return reply.code(400).send({ error: 'code is required' });
+
+    const existing = db
+      .prepare(`SELECT id, display_name, avatar_color FROM users WHERE sign_in_code = ? AND ${PROVISIONED}`)
+      .get(code) as { id: string; display_name: string; avatar_color: string } | undefined;
+
+    if (existing) {
+      const token = mintToken();
+      db.prepare(
+        'INSERT INTO tokens (id, user_id, hash, label, created_at) VALUES (?, ?, ?, ?, ?)',
+      ).run(newId(), existing.id, hashToken(token), 'signin', new Date().toISOString());
+      return { mode: 'signin', token, user: existing };
+    }
+
+    const invited = db
+      .prepare('SELECT id FROM users WHERE invite_code = ?')
+      .get(code) as { id: string } | undefined;
+
+    if (!invited) return reply.code(404).send({ error: 'unknown or already-used code' });
+
+    // A real invite, but joining needs a name. Not an error the user caused, so
+    // it comes back as a prompt rather than a failure.
+    if (!displayName) {
+      return reply.code(200).send({ mode: 'needs_name' });
+    }
+
+    return claim(invited.id, displayName);
   });
 
   /**

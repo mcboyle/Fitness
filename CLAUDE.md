@@ -104,6 +104,11 @@ gate the today/yesterday edit window passes. Phase 2 must re-enforce the same
 rule server-side and return the server's date — a client-side-only rule makes
 the streak decoration (§6).
 
+**Run `npm run check` as its own command.** Piping it into `tail` and chaining
+`&& git commit` reports `tail`'s exit status, so a failing check commits anyway
+(MISTAKES.md #12). Changing the login screen breaks five harnesses at once —
+smoke, twophone, phase3test, screenshot, tour.
+
 **Never swallow a write error.** `.catch(() => undefined)` around a mutation
 has hidden a real bug every time it has appeared here (MISTAKES.md #5, #9,
 #11). If a failure doesn't matter, write down why; if it does, let it change
