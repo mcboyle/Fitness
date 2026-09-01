@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { formatDayLabel, today, type Measurement } from '@lifestyle/shared';
 import { db } from '../db/db';
-import { saveMeasurement } from '../db/repo';
+import { deleteMeasurement, saveMeasurement } from '../db/repo';
 import { BigButton, Card, CardLabel } from './ui';
 
 const FIELDS = [
@@ -23,12 +23,24 @@ type FieldKey = (typeof FIELDS)[number]['key'];
  */
 export function BodyView({ myUserId }: { myUserId: string }) {
   const [draft, setDraft] = useState<Partial<Record<FieldKey, string>>>({});
+  const [editing, setEditing] = useState<Measurement | null>(null);
   const [saving, setSaving] = useState(false);
 
   const all = useLiveQuery(() => db.measurements.toArray(), []) ?? [];
   const mine = all
-    .filter((m) => m.user_id === myUserId)
+    .filter((m) => m.user_id === myUserId && !m.deleted_at)
     .sort((a, b) => b.taken_on.localeCompare(a.taken_on));
+
+  /** Load an existing entry into the form so it can be corrected in place. */
+  const edit = (row: Measurement) => {
+    setEditing(row);
+    setDraft(
+      Object.fromEntries(
+        FIELDS.map((f) => [f.key, row[f.key] == null ? '' : String(row[f.key])]),
+      ),
+    );
+    globalThis.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const anyEntered = FIELDS.some((f) => (draft[f.key] ?? '').trim() !== '');
 
@@ -39,15 +51,25 @@ export function BodyView({ myUserId }: { myUserId: string }) {
       const raw = (draft[field.key] ?? '').trim();
       patch[field.key] = raw === '' ? null : Number(raw);
     }
-    await saveMeasurement({ taken_on: today(), ...patch });
+    await saveMeasurement({
+      // Keep the id and date when correcting, so an edit replaces the entry
+      // rather than adding a second one for the same day.
+      id: editing?.id,
+      created_at: editing?.created_at,
+      taken_on: editing?.taken_on ?? today(),
+      ...patch,
+    });
     setDraft({});
+    setEditing(null);
     setSaving(false);
   };
 
   return (
     <div className="grid gap-4">
       <Card>
-        <CardLabel detail={formatDayLabel(today())}>Measurements</CardLabel>
+        <CardLabel detail={formatDayLabel(editing?.taken_on ?? today())}>
+          {editing ? 'Editing measurement' : 'Measurements'}
+        </CardLabel>
         <div className="grid gap-2">
           {FIELDS.map((field) => (
             <label key={field.key} className="flex items-center gap-3">
@@ -66,13 +88,26 @@ export function BodyView({ myUserId }: { myUserId: string }) {
             </label>
           ))}
         </div>
-        <BigButton
-          onClick={() => void save()}
-          disabled={!anyEntered || saving}
-          className="mt-4 w-full"
-        >
-          {saving ? 'Saving…' : 'Save measurement'}
-        </BigButton>
+        <div className="mt-4 flex gap-2">
+          <BigButton
+            onClick={() => void save()}
+            disabled={!anyEntered || saving}
+            className="flex-1"
+          >
+            {saving ? 'Saving…' : editing ? 'Save changes' : 'Save measurement'}
+          </BigButton>
+          {editing && (
+            <BigButton
+              tone="quiet"
+              onClick={() => {
+                setEditing(null);
+                setDraft({});
+              }}
+            >
+              Cancel
+            </BigButton>
+          )}
+        </div>
         <p className="text-faint mt-2 text-center text-xs">
           Charted over time. No target, no streak — these move over weeks.
         </p>
@@ -81,6 +116,41 @@ export function BodyView({ myUserId }: { myUserId: string }) {
       {FIELDS.map((field) => (
         <Trend key={field.key} label={field.label} unit={field.unit} field={field.key} rows={mine} />
       ))}
+
+      {mine.length > 0 && (
+        <Card>
+          <CardLabel detail={`${mine.length} entries`}>History</CardLabel>
+          <ul className="grid gap-1">
+            {mine.map((row) => (
+              <li key={row.id} className="flex items-baseline gap-3 text-sm">
+                <span className="text-ink w-20 shrink-0">
+                  {formatDayLabel(row.taken_on)}
+                </span>
+                <span className="text-muted min-w-0 flex-1 truncate tabular-nums">
+                  {FIELDS.filter((f) => row[f.key] != null)
+                    .map((f) => `${row[f.key]}${f.unit === 'lb' ? 'lb' : '"'}`)
+                    .join(' · ') || '—'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => edit(row)}
+                  className="text-accent shrink-0 text-xs font-semibold"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void deleteMeasurement(row.id)}
+                  aria-label={`Delete measurement from ${row.taken_on}`}
+                  className="text-faint shrink-0 px-1 leading-none"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {mine.length === 0 && (
         <p className="text-faint px-1 text-sm">No measurements yet.</p>

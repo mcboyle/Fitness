@@ -77,6 +77,13 @@ const MIGRATIONS: Migration[] = [
       db.exec('ALTER TABLE documentaries ADD COLUMN deleted_at TEXT');
     },
   },
+  {
+    version: 4,
+    name: 'soft-delete for measurements',
+    up: (db) => {
+      db.exec('ALTER TABLE measurements ADD COLUMN deleted_at TEXT');
+    },
+  },
 ];
 
 export function migrate(db: DB, log: (message: string) => void = () => {}): number {

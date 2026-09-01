@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { api } from './api/client';
 import { clearSession, getSession } from './api/session';
@@ -12,8 +12,7 @@ import { DocumentaryCard } from './components/DocumentaryCard';
 import { PhotosView } from './components/PhotosView';
 import { TabBar, type View } from './components/TabBar';
 import { ReactBar, ReactionInbox } from './components/Reactions';
-import { Confetti } from './components/Confetti';
-import { claimCelebration } from './lib/celebrate';
+import { Confetti, type Intensity } from './components/Confetti';
 import { isDayComplete, ROLLING_GOALS as GOALS } from '@lifestyle/shared';
 import type { ReactionRow } from './api/reactions';
 import { ROLLING_GOALS } from '@lifestyle/shared';
@@ -60,7 +59,7 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
   const [notice, setNotice] = useState<string | null>(null);
 
   const [view, setView] = useState<View>('today');
-  const [celebrating, setCelebrating] = useState(false);
+  const [celebrating, setCelebrating] = useState<{ intensity: Intensity; key: number } | null>(null);
   const [syncState, setSyncState] = useState<{ status: string; pending: number }>({
     status: 'idle',
     pending: 0,
@@ -139,29 +138,44 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
   }, [byDate, partnerLogs, documentaries, media, date, session.user_id, partner.id, partnerName]);
 
   /*
-   * Celebrate crossing the completion threshold, and meeting a rolling 7-day
-   * goal. Keyed by date and goal so each fires exactly once, ever — not on
-   * every reload of an already-complete day.
+   * Celebrate crossing *into* completion, every time it happens — including
+   * after breaking a complete day by editing it and then fixing it again.
+   *
+   * Tracked in refs rather than persisted: a transition is the event, so
+   * reopening an already-complete day is not one, and nothing needs remembering
+   * between sessions. The refs seed from the first render, which is why opening
+   * the app on a finished day stays quiet.
    */
+  const wasComplete = useRef<boolean | null>(null);
+  const metGoals = useRef<Record<string, boolean> | null>(null);
+
   useEffect(() => {
-    if (!settings || !storedLog) return;
+    if (!settings) return;
 
-    const events: string[] = [];
-    if (isDayComplete(storedLog, settings)) events.push(`day:${date}`);
-
+    const complete = !!storedLog && isDayComplete(storedLog, settings);
     const mine = rollingWindows[0]?.window;
-    if (mine) {
-      if (mine.workouts >= GOALS.workouts) events.push(`week:workouts:${date}`);
-      if (mine.documentaries >= GOALS.documentaries) events.push(`week:docs:${date}`);
-      if (mine.photos >= GOALS.photos) events.push(`week:photo:${date}`);
-    }
+    const goals = {
+      workouts: !!mine && mine.workouts >= GOALS.workouts,
+      documentaries: !!mine && mine.documentaries >= GOALS.documentaries,
+      photos: !!mine && mine.photos >= GOALS.photos,
+    };
 
-    // Guarded by claimCelebration, which is backed by localStorage and returns
-    // true exactly once per event — so this cannot cascade. The external system
-    // being synchronised with is that record of what has already been shown.
-    // oxlint-disable-next-line react/set-state-in-effect
-    if (events.some(claimCelebration)) setCelebrating(true);
-  }, [settings, storedLog, date, rollingWindows]);
+    const first = wasComplete.current === null;
+    const dayJustDone = !first && !wasComplete.current && complete;
+    const goalJustDone =
+      !first &&
+      metGoals.current !== null &&
+      Object.entries(goals).some(([key, met]) => met && !metGoals.current![key]);
+
+    wasComplete.current = complete;
+    metGoals.current = goals;
+
+    // The day is the bigger moment, so it wins if both land at once.
+    if (dayJustDone || goalJustDone) {
+      // oxlint-disable-next-line react/set-state-in-effect
+      setCelebrating({ intensity: dayJustDone ? 'big' : 'small', key: Date.now() });
+    }
+  }, [settings, storedLog, rollingWindows]);
 
   if (!settings) return <Splash />;
 
@@ -313,7 +327,7 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
 
       <TabBar view={view} onChange={setView} />
 
-      <Confetti fire={celebrating} onDone={() => setCelebrating(false)} />
+      <Confetti fire={celebrating} onDone={() => setCelebrating(null)} />
 
       <SyncFooter status={syncState.status} pending={syncState.pending} />
 

@@ -39,13 +39,22 @@ export function DayHeader({
 
   return (
     <header className="grid gap-3">
-      <div className="flex items-center gap-2">
-        <NavButton
-          label="Previous day"
-          glyph="‹"
-          onClick={() => onDateChange(addDays(date, -1))}
-        />
-        <div className="min-w-0 flex-1 text-center">
+      {/*
+        Three columns with the outer two the same width, so the date is centred
+        against the page rather than against whatever is left over. A flex row
+        can't do this: there is one button on the left and two on the right, so
+        "flex-1 text-center" centres the date in the remaining space and it
+        lands visibly off to the left.
+      */}
+      <div className="grid grid-cols-[5.5rem_1fr_5.5rem] items-center gap-2">
+        <div>
+          <NavButton
+            label="Previous day"
+            glyph="‹"
+            onClick={() => onDateChange(addDays(date, -1))}
+          />
+        </div>
+        <div className="min-w-0 text-center">
           {/* The date is what orients you; the challenge day number is trivia. */}
           <div className="font-display text-ink text-3xl leading-none font-black tracking-tight italic">
             {formatDayLabel(date).toUpperCase()}
@@ -62,20 +71,22 @@ export function DayHeader({
             {locked && <span className="text-faint">· locked</span>}
           </div>
         </div>
-        <NavButton
-          label="Next day"
-          glyph="›"
-          disabled={date >= today}
-          onClick={() => onDateChange(addDays(date, 1))}
-        />
-        <button
-          type="button"
-          onClick={onOpenSettings}
-          aria-label="Settings"
-          className="text-muted bg-raised border-line size-10 shrink-0 rounded-full border text-lg"
-        >
-          ⚙
-        </button>
+        <div className="flex justify-end gap-2">
+          <NavButton
+            label="Next day"
+            glyph="›"
+            disabled={date >= today}
+            onClick={() => onDateChange(addDays(date, 1))}
+          />
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            aria-label="Settings"
+            className="text-muted bg-raised border-line size-10 shrink-0 rounded-full border text-lg"
+          >
+            ⚙
+          </button>
+        </div>
       </div>
 
       {/*

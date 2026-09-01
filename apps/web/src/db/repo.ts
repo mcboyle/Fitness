@@ -208,6 +208,7 @@ export async function saveMeasurement(
     thigh_in: input.thigh_in ?? null,
     notes: input.notes ?? null,
     created_at: input.created_at ?? now,
+    deleted_at: null,
   };
 
   await db.measurements.put(row);
@@ -222,6 +223,7 @@ export async function saveMeasurement(
       arm_in: row.arm_in,
       thigh_in: row.thigh_in,
       notes: row.notes,
+      deleted_at: null,
     },
     updated_at: now,
   });
@@ -238,6 +240,18 @@ export async function deleteDocumentary(id: string): Promise<void> {
   if (existing) await db.documentaries.put({ ...existing, deleted_at });
   await enqueue({
     table: 'documentaries',
+    key: id,
+    patch: { deleted_at },
+    updated_at: deleted_at,
+  });
+}
+
+export async function deleteMeasurement(id: string): Promise<void> {
+  const deleted_at = new Date().toISOString();
+  const existing = await db.measurements.get(id);
+  if (existing) await db.measurements.put({ ...existing, deleted_at });
+  await enqueue({
+    table: 'measurements',
     key: id,
     patch: { deleted_at },
     updated_at: deleted_at,

@@ -123,6 +123,8 @@ export interface Measurement {
   thigh_in: number | null;
   notes: string | null;
   created_at: string;
+  /** Tombstone: a hard delete would never reach the other device. */
+  deleted_at?: string | null;
 }
 
 export interface Documentary {
