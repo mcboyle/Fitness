@@ -15,8 +15,22 @@ export class EditWindowError extends Error {
   }
 }
 
-export async function getSettings(): Promise<UserSettings> {
-  const existing = await db.user_settings.get(LOCAL_USER_ID);
+/**
+ * Read-only. Safe to call from a live query — `ensureSettings` is what writes.
+ */
+export async function readSettings(): Promise<UserSettings | undefined> {
+  return db.user_settings.get(LOCAL_USER_ID);
+}
+
+/**
+ * Seeds defaults on first run.
+ *
+ * This must never be called from inside `useLiveQuery`: Dexie runs live
+ * queries in a read-only transaction, so a write there throws ReadOnlyError
+ * and takes the whole component down with it.
+ */
+export async function ensureSettings(): Promise<UserSettings> {
+  const existing = await readSettings();
   if (existing) return existing;
 
   const seeded: UserSettings = {
@@ -31,7 +45,7 @@ export async function getSettings(): Promise<UserSettings> {
 export async function updateSettings(
   patch: Partial<Omit<UserSettings, 'user_id'>>,
 ): Promise<void> {
-  const current = await getSettings();
+  const current = await ensureSettings();
   await db.user_settings.put({
     ...current,
     ...patch,

@@ -4,9 +4,10 @@ import { db } from '../db/db';
 import { LOCAL_USER_ID } from '../db/defaults';
 import {
   ensureChallenge,
+  ensureSettings,
   getActiveChallenge,
-  getSettings,
   logsBetween,
+  readSettings,
 } from '../db/repo';
 import type { DailyLog, UserSettings } from '../db/types';
 import { computeStreak } from '../lib/scoring';
@@ -32,7 +33,11 @@ export function useToday(): IsoDate {
 }
 
 export function useSettings(): UserSettings | undefined {
-  return useLiveQuery(() => getSettings(), []);
+  useEffect(() => {
+    void ensureSettings();
+  }, []);
+
+  return useLiveQuery(() => readSettings(), []);
 }
 
 export function useChallenge() {

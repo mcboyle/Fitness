@@ -49,7 +49,11 @@ export function DayHeader({
             {day && day >= 1 ? `DAY ${day}` : formatRelativeDay(date, today)}
           </div>
           <div className="text-faint mt-1 flex items-center justify-center gap-2 text-xs">
-            <span>{formatRelativeDay(date, today)}</span>
+            <span>
+              {day && day >= 1
+                ? formatRelativeDay(date, today)
+                : 'before this challenge'}
+            </span>
             {log?.logged_late && (
               <span
                 title="Filled in after the day it describes"

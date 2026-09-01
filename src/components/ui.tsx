@@ -85,11 +85,14 @@ export function BigButton({
   );
 }
 
+/** `glyph` is what you see; `label` is what a screen reader hears. */
 export function StepButton({
+  glyph = '−',
   label,
   onClick,
   disabled,
 }: {
+  glyph?: string;
   label: string;
   onClick: () => void;
   disabled?: boolean;
@@ -100,9 +103,9 @@ export function StepButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className="bg-sunken text-ink border-line size-11 shrink-0 rounded-full border text-lg font-bold transition active:scale-90 disabled:opacity-40 disabled:active:scale-100"
+      className="bg-sunken text-ink border-line grid size-11 shrink-0 place-items-center rounded-full border text-xl leading-none font-bold transition active:scale-90 disabled:opacity-40 disabled:active:scale-100"
     >
-      {label}
+      <span aria-hidden>{glyph}</span>
     </button>
   );
 }

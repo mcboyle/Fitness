@@ -41,6 +41,7 @@ export function SleepCard({
       <CardLabel detail={met ? 'goal met' : 'last night'}>Sleep</CardLabel>
       <div className="flex items-center gap-3">
         <StepButton
+          glyph="−"
           label="Half an hour less"
           disabled={locked}
           onClick={() => bump(-STEP_MINUTES)}
@@ -67,6 +68,7 @@ export function SleepCard({
           </span>
         </div>
         <StepButton
+          glyph="+"
           label="Half an hour more"
           disabled={locked}
           onClick={() => bump(STEP_MINUTES)}
@@ -92,7 +94,7 @@ function SleepTrend({
   return (
     <div className="mt-4 flex h-16 items-end gap-1.5" aria-hidden>
       {values.map((value, i) => (
-        <div key={days[i]} className="flex flex-1 flex-col items-center gap-1">
+        <div key={days[i]} className="flex h-full flex-1 flex-col justify-end">
           <div
             className="bg-accent w-full rounded-t-sm transition-[height] duration-500"
             style={{

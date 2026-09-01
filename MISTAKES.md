@@ -1,0 +1,116 @@
+# Mistakes
+
+Every failure in this project gets an entry. **The second time the same root
+cause appears, stop and build something that makes it impossible** — a script,
+a check, a lint rule — and link it here.
+
+Format: what broke, why, the fix, and the guard if it earned one.
+
+---
+
+## 1. `pkill -f <pattern>` killed the shell running it — TWICE
+
+**Symptom.** `pkill -f "vite preview"` returned exit 144 and silently
+terminated the whole command chain behind it. The `cp`, `git init` and `git
+commit` that followed never ran, and nothing said so.
+
+**Cause.** `-f` matches against the full command line of every process — which
+includes the shell currently executing `pkill -f "vite preview"`. It kills
+itself. Retrying with `pgrep -f 'vite.*preview'` did exactly the same thing,
+because the pattern was still present in the new command line.
+
+**Guard — [`scripts/killport.sh`](scripts/killport.sh).** Kills by listening
+port via `ss`, never by process-name pattern. Use it instead of `pkill`/`pgrep
+-f` for anything that serves.
+
+```sh
+scripts/killport.sh 5173 4173
+```
+
+---
+
+## 2. Writing to Dexie from inside `useLiveQuery` — TWICE
+
+**Symptom.** Blank white page. `tsc`, `oxlint` and `vitest` were all green.
+The only trace was `ReadOnlyError: DexieError` in the browser console, which
+nothing in the toolchain was reading.
+
+**Cause.** Dexie runs live queries inside a **read-only** transaction. Both
+`getSettings()` and the original `useChallenge()` seeded a row with `.put()` on
+first read, so the very first render threw and took `<App>` down with it.
+
+There was a second, quieter version of the same bug: `startChallenge()` mints a
+UUID, so calling it from a live query or a StrictMode double-invoked effect
+could leave two active challenges and two different day numbers.
+
+**Fix.** Split reads from writes. `readSettings()` / `getActiveChallenge()` are
+pure reads and safe in a live query; `ensureSettings()` / `ensureChallenge()`
+do the seeding, run once from an effect, and `ensureChallenge` holds a
+module-level promise so concurrent callers share one bootstrap.
+
+**Guard — [`scripts/smoke.mjs`](scripts/smoke.mjs) (`npm run smoke`).** Builds,
+serves, and loads the app in a real browser. Fails on any page error, console
+error, failed request, blank render, or a write that doesn't survive a reload.
+
+This one was verified by reintroducing the bug: `tsc` clean, 13/13 tests
+passing, and `npm run smoke` failed with "missing from the page: WATER". That
+is the whole reason it exists.
+
+**Rule.** Never call anything named `ensure*`, `start*`, or anything that
+writes, from inside `useLiveQuery`. Live queries read.
+
+---
+
+## 3. `aria-label` rendered as visible button text
+
+**Symptom.** The round decrement buttons showed "Remove 8 ounces" and "Half an
+hour less" as body copy, blowing out the card layout.
+
+**Cause.** `StepButton` used one `label` prop for both the accessible name and
+the visible child.
+
+**Fix.** Separate `glyph` (visible, `aria-hidden`) from `label` (screen-reader
+only).
+
+**Guard — [`scripts/screenshot.mjs`](scripts/screenshot.mjs) (`npm run shots`).**
+Renders both themes and both ring layouts at phone size. Purely visual bugs
+don't show up in any assertion; look at the pictures.
+
+---
+
+## 4. Sleep trend bars rendered flat
+
+**Cause.** Percentage heights resolved against a wrapper that had no height of
+its own. `h-16` was on the grandparent, not the bar's parent.
+
+**Fix.** `h-full` on the column wrapper. Caught by screenshots, same as #3.
+
+---
+
+## 5. Smoke test served a stale build
+
+**Symptom.** The smoke harness passed against a deliberately reintroduced bug.
+
+**Cause.** `vite preview` serves whatever is already in `dist/`. The script
+never rebuilt, so it validated the previous, working artifact.
+
+**Fix.** `npm run smoke` now runs `npm run build` first. A check that can't fail
+is worse than no check — it converts "untested" into "verified".
+
+---
+
+## Toolchain snags
+
+Low-value individually; recorded so they aren't rediscovered.
+
+- **`erasableSyntaxOnly`** (on by default in this Vite template) rejects
+  TypeScript constructor parameter properties. Declare and assign fields
+  explicitly.
+- **Dexie `EntityTable<T, 'id'>`** doesn't type compound primary keys. Use
+  `Table<T, [string, string]>` for `daily_log` and `challenge_members`, and pass
+  tables to `db.transaction` as an **array**.
+- **`localStorage` is undefined under vitest's node environment.** `deviceId()`
+  now try/catches and falls back to a memory-only id — which also fixes Safari
+  private mode, where it throws.
+- **oxlint's `only-export-components`** fires when a component file also exports
+  a helper. `cx` lives in `src/lib/cx.ts` for that reason.

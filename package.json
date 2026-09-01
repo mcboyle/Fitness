@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "lint": "oxlint",
     "test": "vitest run",
-    "icons": "node scripts/gen-icons.mjs"
+    "icons": "node scripts/gen-icons.mjs",
+    "smoke": "npm run build && node scripts/smoke.mjs",
+    "shots": "node scripts/screenshot.mjs",
+    "check": "npm run lint && npm test && npm run smoke"
   },
   "dependencies": {
     "dexie": "^4.4.5",
@@ -24,6 +27,7 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
     "oxlint": "^1.79.0",
+    "playwright": "^1.62.1",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
