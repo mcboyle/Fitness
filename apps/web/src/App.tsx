@@ -274,7 +274,9 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
          * black-translucent. Without this the day header sits behind the clock
          * and the settings gear behind the battery.
          */
-        paddingTop: 'max(1.25rem, calc(env(safe-area-inset-top) + 0.5rem))',
+        // The day header supplies its own top inset because it is sticky;
+        // the other views get theirs from the title below.
+        paddingTop: view === 'today' ? 0 : TOP_INSET,
         paddingLeft: 'max(1rem, env(safe-area-inset-left))',
         paddingRight: 'max(1rem, env(safe-area-inset-right))',
       }}
@@ -422,6 +424,8 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
     </div>
   );
 }
+
+const TOP_INSET = 'max(1.25rem, calc(env(safe-area-inset-top) + 0.5rem))';
 
 function Splash() {
   return (

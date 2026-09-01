@@ -45,7 +45,20 @@ export function DayHeader({
       so renaming the label broke smoke, tour, twophone, phase3 and relogin all
       at once. Copy changes; this must not.
     */
-    <header className="grid gap-3" data-testid="day-header">
+    /*
+      Sticky, and it carries the top safe-area inset itself rather than
+      inheriting it from the page. A sticky element pins to the top of the
+      scrollport, so if the padding stayed on the container the content would
+      scroll underneath the status bar with nothing behind it.
+
+      The negative margins let the opaque background span the full width while
+      the content keeps the page's own gutters.
+    */
+    <header
+      className="bg-surface border-line sticky top-0 z-20 -mx-4 grid gap-3 border-b px-4 pb-3"
+      style={{ paddingTop: 'max(1.25rem, calc(env(safe-area-inset-top) + 0.5rem))' }}
+      data-testid="day-header"
+    >
       {/*
         Three columns with the outer two the same width, so the date is centred
         against the page rather than against whatever is left over. A flex row

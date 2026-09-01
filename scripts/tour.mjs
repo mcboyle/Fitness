@@ -158,7 +158,8 @@ async function shot(page, name) {
   // The tab bar is sticky, so in a full-page capture it lands mid-content.
   // Pin it for the shot only; the running app is unaffected.
   await page.addStyleTag({
-    content: 'nav[aria-label="Sections"]{position:static !important}',
+    content:
+      'nav[aria-label="Sections"],[data-testid=day-header]{position:static !important}',
   });
   await page.screenshot({ path: file, fullPage: true });
   shots.push(name);
