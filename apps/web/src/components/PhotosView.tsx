@@ -13,7 +13,13 @@ import { cx } from '../lib/cx';
 import { Icon } from './Icon';
 import { BigButton, Card } from './ui';
 
-export function PhotosView({ myUserId, partnerName }: { myUserId: string; partnerName: string }) {
+export function PhotosView({
+  myUserId,
+  nameFor,
+}: {
+  myUserId: string;
+  nameFor: (id: string) => string;
+}) {
   const [media, setMedia] = useState<MediaRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -88,9 +94,15 @@ export function PhotosView({ myUserId, partnerName }: { myUserId: string; partne
         ))}
       </Section>
 
-      <Section title={partnerName} empty={`${partnerName} hasn't shared any photos.`}>
+      <Section title="Shared with you" empty="Nobody has shared a photo with you yet.">
         {theirs.map((row) => (
-          <Photo key={row.id} row={row} owned={false} onChanged={refresh} />
+          <Photo
+            key={row.id}
+            row={row}
+            owned={false}
+            onChanged={refresh}
+            owner={nameFor(row.user_id)}
+          />
         ))}
       </Section>
     </div>
@@ -124,10 +136,12 @@ function Photo({
   row,
   owned,
   onChanged,
+  owner,
 }: {
   row: MediaRow;
   owned: boolean;
   onChanged: () => Promise<void>;
+  owner?: string;
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -155,7 +169,10 @@ function Photo({
       </div>
 
       <div className="flex items-center gap-2 px-1">
-        <span className="text-faint text-xs">{formatDayLabel(row.taken_on)}</span>
+        <span className="text-faint text-xs">
+          {owner ? `${owner} · ` : ''}
+          {formatDayLabel(row.taken_on)}
+        </span>
         {owned && (
           <span
             className={cx('ml-auto text-xs font-bold', shared ? 'text-ok' : 'text-faint')}

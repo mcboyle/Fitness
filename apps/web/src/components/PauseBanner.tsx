@@ -20,11 +20,11 @@ export interface PauseRow {
 export function PauseBanner({
   pauses,
   myUserId,
-  partnerName,
+  nameFor,
 }: {
   pauses: PauseRow[];
   myUserId: string;
-  partnerName: string;
+  nameFor: (id: string) => string;
 }) {
   const now = new Date();
   const awaitingMe = pauses.filter(
@@ -49,7 +49,7 @@ export function PauseBanner({
       {awaitingMe.map((pause) => (
         <Card key={pause.id} accent="var(--accent)">
           <h2 className="text-ink text-sm font-bold">
-            {partnerName} asked to pause
+            {nameFor(pause.user_id)} asked to pause
           </h2>
           <p className="text-muted mt-1 text-sm">
             {formatDayLabel(pause.start_date)}
@@ -77,8 +77,8 @@ export function PauseBanner({
       {mine.map((pause) => (
         <Card key={pause.id}>
           <p className="text-muted text-sm">
-            Your pause for {formatDayLabel(pause.start_date)} is waiting on{' '}
-            {partnerName}. It approves automatically in 24 hours.
+            Your pause for {formatDayLabel(pause.start_date)} is waiting on the
+            others. It approves automatically in 24 hours.
           </p>
         </Card>
       ))}

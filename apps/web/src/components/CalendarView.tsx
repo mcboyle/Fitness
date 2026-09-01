@@ -61,8 +61,8 @@ const MONTHS = [
 export function CalendarView({
   myUserId,
   myName,
-  partnerId,
-  partnerName,
+  memberIds,
+  nameFor,
   logs,
   pauses,
   settings,
@@ -70,8 +70,8 @@ export function CalendarView({
 }: {
   myUserId: string;
   myName: string;
-  partnerId: string | null;
-  partnerName: string;
+  memberIds: string[];
+  nameFor: (id: string) => string;
   logs: DailyLog[];
   pauses: PauseRow[];
   settings: UserSettings;
@@ -122,10 +122,9 @@ export function CalendarView({
 
   const people = [
     { id: myUserId, name: myName },
-    ...(partnerId ? [{ id: partnerId, name: partnerName }] : []),
-    ...[...rows.keys()]
-      .filter((id) => id !== myUserId && id !== partnerId)
-      .map((id) => ({ id, name: 'Someone' })),
+    ...[...new Set([...memberIds, ...rows.keys()])]
+      .filter((id) => id !== myUserId)
+      .map((id) => ({ id, name: nameFor(id) })),
   ];
 
   const [year, monthNumber] = month.split('-').map(Number);

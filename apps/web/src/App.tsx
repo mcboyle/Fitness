@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { api } from './api/client';
 import { clearSession, getSession } from './api/session';
 import { onSync, startSyncLoop } from './api/sync';
 import { checkVersion } from './api/version';
@@ -15,6 +14,7 @@ import { TabBar, type View } from './components/TabBar';
 import { ReactBar, ReactionInbox } from './components/Reactions';
 import { Confetti, type Intensity } from './components/Confetti';
 import { IconSprite } from './components/Icon';
+import { useMembers } from './hooks/useMembers';
 import { SCORED_ITEMS, scoredStatus, ROLLING_GOALS as GOALS } from '@lifestyle/shared';
 import type { ReactionRow } from './api/reactions';
 import { ROLLING_GOALS } from '@lifestyle/shared';
@@ -156,18 +156,20 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
     [date],
   );
 
-  const partner = usePartner(session.user_id);
-  const partnerStreak = useStreak(settings, today, partner.id ?? undefined);
+  const { list: members, nameFor } = useMembers(session.user_id);
+  // The app supports up to 20 people; the day view stays legible by showing the
+  // first alongside you and letting the calendar carry the rest.
+  const primary = members[0] ?? null;
+  const primaryStreak = useStreak(settings, today, primary?.id);
 
-  /* Yours first. A partner with no account yet has no streak to show. */
+  /* Yours first. Someone with no account yet has no streak to show. */
   const streaks = useMemo(
     () => [
       { name: 'you', streak: myStreak },
-      ...(partner.id ? [{ name: partner.name.toLowerCase(), streak: partnerStreak }] : []),
+      ...(primary ? [{ name: primary.display_name.toLowerCase(), streak: primaryStreak }] : []),
     ],
-    [myStreak, partner.id, partner.name, partnerStreak],
+    [myStreak, primary, primaryStreak],
   );
-  const partnerName = partner.name;
   const allLogs = useAllLogs();
   const partnerLogs = usePartnerLogs(session.user_id, date);
   const pauses = usePauses();
@@ -179,7 +181,7 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
     const logs = [...byDate.values(), ...partnerLogs];
     const people = [
       { id: session.user_id, name: 'You' },
-      ...(partner.id ? [{ id: partner.id, name: partnerName }] : []),
+      ...members.map((m) => ({ id: m.id, name: m.display_name })),
     ];
     return people.map(({ id, name }) => ({
       name,
@@ -190,7 +192,7 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
         date,
       ),
     }));
-  }, [byDate, partnerLogs, documentaries, media, date, session.user_id, partner.id, partnerName]);
+  }, [byDate, partnerLogs, documentaries, media, date, session.user_id, members]);
 
   /*
    * A short burst each time a single ring closes, and a long one when all nine
@@ -253,16 +255,15 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
    * takes the reaction affordance with it — the same mistake as the calendar
    * row (MISTAKES.md #10).
    */
-  const partnerLog =
-    partnerLogs.find((l) => l.date === date) ??
-    (partner.id
-      ? emptyDailyLog({
-          userId: partner.id,
-          date,
-          challengeId: challenge?.id ?? null,
-          deviceId: 'partner',
-        })
-      : undefined);
+  const primaryLog = primary
+    ? (partnerLogs.find((l) => l.date === date && l.user_id === primary.id) ??
+      emptyDailyLog({
+        userId: primary.id,
+        date,
+        challengeId: challenge?.id ?? null,
+        deviceId: 'partner',
+      }))
+    : undefined;
 
   return (
     <div
@@ -281,11 +282,7 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
         paddingRight: 'max(1rem, env(safe-area-inset-right))',
       }}
     >
-      <PauseBanner
-        pauses={pauses}
-        myUserId={session.user_id}
-        partnerName={partnerName}
-      />
+      <PauseBanner pauses={pauses} myUserId={session.user_id} nameFor={nameFor} />
 
       {!inboxDismissed && (
         <ReactionInbox
@@ -306,8 +303,8 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
         <CalendarView
           myUserId={session.user_id}
           myName={session.display_name}
-          partnerId={partner.id}
-          partnerName={partnerName}
+          memberIds={members.map((m) => m.id)}
+          nameFor={nameFor}
           logs={allLogs}
           pauses={pauses}
           settings={settings}
@@ -316,7 +313,7 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
       )}
 
       {view === 'photos' && (
-        <PhotosView myUserId={session.user_id} partnerName={partnerName} />
+        <PhotosView myUserId={session.user_id} nameFor={nameFor} />
       )}
 
       {view === 'body' && <BodyView myUserId={session.user_id} />}
@@ -367,20 +364,20 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
         recent={documentaries}
         goal={ROLLING_GOALS.documentaries}
         myUserId={session.user_id}
-        nameFor={(id) => (id === partner.id ? partnerName : 'Someone')}
+        nameFor={nameFor}
       />
 
-      {partnerLog && settings && (
+      {primaryLog && primary && settings && (
         <PartnerCard
-          name={partnerName}
-          log={partnerLog}
+          name={primary.display_name}
+          log={primaryLog}
           settings={settings}
           layout={settings.ring_layout}
           onFocus={() => undefined}
         >
           <ReactBar
             date={date}
-            partnerName={partnerName}
+            partnerName={primary.display_name}
             mine={reactions.filter(
               (r) =>
                 r.from_user_id === session.user_id &&
@@ -483,39 +480,3 @@ function useReactions(): ReactionRow[] {
   return (useLiveQuery(() => db.reactions.toArray(), []) ?? []) as unknown as ReactionRow[];
 }
 
-/**
- * The partner's id comes from synced data, not from /me.
- *
- * `user_settings` carries a row per user and is pulled for both, so the id is
- * available offline and stays correct however the two of you joined. A /me
- * fetched once at mount goes stale the moment they claim their invite — which
- * is exactly how the shared calendar ended up rendering one row instead of two.
- */
-function usePartner(myUserId: string): { id: string | null; name: string } {
-  const [name, setName] = useState('Partner');
-
-  const id =
-    useLiveQuery(async () => {
-      const settings = await db.user_settings.toArray();
-      const other = settings.find((row) => row.user_id !== myUserId);
-      if (other) return other.user_id;
-      const members = await db.challenge_members.toArray();
-      return members.find((m) => m.user_id !== myUserId)?.user_id ?? null;
-    }, [myUserId]) ?? null;
-
-  useEffect(() => {
-    let cancelled = false;
-    api<{ partner: { id: string; display_name: string } | null }>('/me')
-      .then((me) => {
-        if (!cancelled && me.partner?.display_name) setName(me.partner.display_name);
-      })
-      .catch(() => {
-        // Offline: keep the placeholder until the next pull.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
-
-  return { id, name };
-}

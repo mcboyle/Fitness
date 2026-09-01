@@ -7,7 +7,12 @@
  * so both codes can be handed out before anyone has signed in — useful when
  * setting up two phones at once, or after resetting the database.
  *
- * Run: npm run invite
+ * Run: npm run invite              show outstanding codes, provision a second seat
+ *      npm run invite -- --new [name]   mint an ADDITIONAL seat
+ *
+ * The plain form is deliberately idempotent — it hands back an outstanding code
+ * rather than burning a seat every time someone runs it. --new is the escape
+ * hatch for adding another person while an invite is still unclaimed.
  */
 import Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
@@ -32,16 +37,33 @@ const newCode = (n = 8) =>
     .map((b) => ALPHABET[b % ALPHABET.length])
     .join('');
 
+const MAX_USERS = 20;
+const args = process.argv.slice(2);
+const wantsNew = args.includes('--new');
+const requestedName = args.find((a) => !a.startsWith('--'));
+
 const db = new Database(dbPath);
 const users = db.prepare('SELECT id, display_name, invite_code FROM users ORDER BY created_at').all();
 
-// This app is for exactly two people (§2); never create a third.
-if (users.length < 2) {
+const addSeat = (name) => {
+  if (users.length >= MAX_USERS) {
+    console.error(`\n  all ${MAX_USERS} seats are taken\n`);
+    process.exit(1);
+  }
   const code = newCode();
   db.prepare(
     'INSERT INTO users (id, display_name, avatar_color, invite_code, created_at) VALUES (?, ?, ?, ?, ?)',
-  ).run(randomUUID(), 'Partner', 'var(--blue-water)', code, new Date().toISOString());
-  users.push({ display_name: 'Partner', invite_code: code });
+  ).run(randomUUID(), name, 'var(--ring-water)', code, new Date().toISOString());
+  users.push({ display_name: name, invite_code: code });
+  return code;
+};
+
+if (wantsNew) {
+  // The placeholder name only labels the seat until it is claimed; whoever
+  // redeems the code types their own.
+  addSeat(requestedName ?? 'Invited');
+} else if (users.length < 2) {
+  addSeat('Partner');
 }
 
 console.log('');
@@ -53,6 +75,7 @@ for (const [i, user] of users.entries()) {
     console.log(`  ${label}  ${user.display_name}    (already claimed — codes are single-use)`);
   }
 }
-console.log('\n  Open https://fitness.themfboyles.org on each phone and enter one code each.');
-console.log('  Each code works once. Signing in clears whatever that device had locally.\n');
+console.log(`\n  ${users.length} of ${MAX_USERS} seats used.`);
+console.log('  Open https://fitness.themfboyles.org and enter a code, then pick a name.');
+console.log('  Invite codes work once; the sign-in code in Settings works forever.\n');
 db.close();
