@@ -15,7 +15,7 @@ import { TabBar, type View } from './components/TabBar';
 import { ReactBar, ReactionInbox } from './components/Reactions';
 import { Confetti, type Intensity } from './components/Confetti';
 import { IconSprite } from './components/Icon';
-import { isDayComplete, ROLLING_GOALS as GOALS } from '@lifestyle/shared';
+import { SCORED_ITEMS, scoredStatus, ROLLING_GOALS as GOALS } from '@lifestyle/shared';
 import type { ReactionRow } from './api/reactions';
 import { ROLLING_GOALS } from '@lifestyle/shared';
 import { DayCard } from './components/DayCard';
@@ -183,42 +183,53 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
   }, [byDate, partnerLogs, documentaries, media, date, session.user_id, partner.id, partnerName]);
 
   /*
-   * Celebrate crossing *into* completion, every time it happens — including
-   * after breaking a complete day by editing it and then fixing it again.
+   * A short burst each time a single ring closes, and a long one when all nine
+   * are closed at once.
    *
-   * Tracked in refs rather than persisted: a transition is the event, so
-   * reopening an already-complete day is not one, and nothing needs remembering
-   * between sessions. The refs seed from the first render, which is why opening
-   * the app on a finished day stays quiet.
+   * Both are transitions, not states: closing a ring that was already closed is
+   * not an event, and neither is reopening the app on a finished day. The refs
+   * seed from the first render, which is what keeps launch quiet.
    */
-  const wasComplete = useRef<boolean | null>(null);
-  const metGoals = useRef<Record<string, boolean> | null>(null);
+  const prevRings = useRef<Record<string, boolean> | null>(null);
+  const prevAllNine = useRef<boolean | null>(null);
+  const prevGoals = useRef<Record<string, boolean> | null>(null);
 
   useEffect(() => {
     if (!settings) return;
 
-    const complete = !!storedLog && isDayComplete(storedLog, settings);
-    const mine = rollingWindows[0]?.window;
+    const rings = storedLog
+      ? scoredStatus(storedLog, settings)
+      : (Object.fromEntries(SCORED_ITEMS.map((k) => [k, false])) as Record<string, boolean>);
+    const allNine = SCORED_ITEMS.every((item) => rings[item]);
+
+    const window7 = rollingWindows[0]?.window;
     const goals = {
-      workouts: !!mine && mine.workouts >= GOALS.workouts,
-      documentaries: !!mine && mine.documentaries >= GOALS.documentaries,
-      photos: !!mine && mine.photos >= GOALS.photos,
+      workouts: !!window7 && window7.workouts >= GOALS.workouts,
+      documentaries: !!window7 && window7.documentaries >= GOALS.documentaries,
+      photos: !!window7 && window7.photos >= GOALS.photos,
     };
 
-    const first = wasComplete.current === null;
-    const dayJustDone = !first && !wasComplete.current && complete;
-    const goalJustDone =
+    const first = prevRings.current === null;
+    const ringJustClosed =
+      !first && SCORED_ITEMS.some((item) => rings[item] && !prevRings.current![item]);
+    const allJustClosed = !first && allNine && !prevAllNine.current;
+    const goalJustMet =
       !first &&
-      metGoals.current !== null &&
-      Object.entries(goals).some(([key, met]) => met && !metGoals.current![key]);
+      prevGoals.current !== null &&
+      Object.entries(goals).some(([key, met]) => met && !prevGoals.current![key]);
 
-    wasComplete.current = complete;
-    metGoals.current = goals;
+    prevRings.current = rings;
+    prevAllNine.current = allNine;
+    prevGoals.current = goals;
 
-    // The day is the bigger moment, so it wins if both land at once.
-    if (dayJustDone || goalJustDone) {
+    // Closing the ninth ring closes a ring *and* completes the set; the big one
+    // wins, or the two would fire on top of each other.
+    if (allJustClosed || ringJustClosed || goalJustMet) {
       // oxlint-disable-next-line react/set-state-in-effect
-      setCelebrating({ intensity: dayJustDone ? 'big' : 'small', key: Date.now() });
+      setCelebrating({
+        intensity: allJustClosed ? 'big' : 'small',
+        key: Date.now(),
+      });
     }
   }, [settings, storedLog, rollingWindows]);
 

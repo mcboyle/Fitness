@@ -7,10 +7,14 @@ import { useEffect, useRef } from 'react';
  */
 export type Intensity = 'big' | 'small';
 
-/** Big for a completed day; small for a rolling goal, which happens far more. */
+/**
+ * `small` fires whenever a single ring closes, so it has to be brief — nine of
+ * them in a day is a lot of celebrating. `big` is reserved for closing all
+ * nine, and is deliberately long enough to feel like an event.
+ */
 const PROFILE = {
-  big: { count: 220, spread: 1.0, speed: 13, size: 6, lifetime: 3200 },
-  small: { count: 60, spread: 0.45, speed: 8, size: 4, lifetime: 1600 },
+  big: { count: 320, spread: 1.1, speed: 15, size: 7, lifetime: 5000 },
+  small: { count: 40, spread: 0.35, speed: 7, size: 4, lifetime: 1200 },
 } as const;
 
 function burst(
