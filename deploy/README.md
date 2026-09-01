@@ -28,6 +28,24 @@ TLS terminates at Cloudflare's edge, so nothing here manages a certificate. The
 app is same-origin — one hostname serves both the PWA and `/api/*`, so there is
 no CORS anywhere.
 
+## Resetting the database
+
+`ProtectSystem=full` with `ReadWritePaths=/home/mboyle/fitness/data` means
+systemd bind-mounts that directory. **Deleting it takes the service down** —
+the unit cannot start without it and restarts in a loop until it returns.
+
+```sh
+scripts/snapshot.sh                   # always, first
+sudo systemctl stop lifestyle-api
+rm -rf data && mkdir data             # recreate it in the same breath
+sudo systemctl start lifestyle-api
+npm run invite                        # provision the second seat
+```
+
+Photos live in `data/media/` and go with it. Snapshots live in
+`data/snapshots/`, so copy one somewhere else before removing the directory or
+the backups die with the thing they were backing up.
+
 ## Caching — do not loosen this
 
 `sw.js`, `index.html`, `registerSW.js` and `manifest.webmanifest` are served
