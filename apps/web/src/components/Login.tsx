@@ -54,8 +54,8 @@ export function Login({ onSignedIn }: { onSignedIn: () => void }) {
   return (
     <div className="mx-auto flex min-h-full max-w-md flex-col justify-center gap-5 p-6">
       <div>
-        <h1 className="font-display text-ink text-5xl leading-none font-black italic">
-          75
+        <h1 className="font-display text-ink text-3xl leading-tight font-black break-words italic">
+          Winter_Fitness_Tracker
         </h1>
         <p className="text-muted mt-2 text-sm">
           Enter the invite code you were given.

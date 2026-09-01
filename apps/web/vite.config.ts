@@ -18,8 +18,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['apple-touch-icon.png', 'favicon-32.png', 'fonts/*.woff2'],
       manifest: {
-        name: 'Lifestyle Tracker',
-        short_name: '75',
+        name: 'Winter_Fitness_Tracker',
+        short_name: 'Winter_Fitness_Tracker',
         description: 'A shared daily-habit tracker for two.',
         start_url: '/',
         scope: '/',
