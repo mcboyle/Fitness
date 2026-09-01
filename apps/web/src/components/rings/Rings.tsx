@@ -1,6 +1,7 @@
 import type { RingLayout } from '@lifestyle/shared';
 import { Ring } from './Ring';
 import { SegmentedRing } from './SegmentedRing';
+import { Icon } from '../Icon';
 import type { RingSpec } from './specs';
 
 interface RingsProps {
@@ -147,15 +148,18 @@ function Cell({
     <div className="flex flex-col items-center gap-1">
       <svg width={size} height={size} viewBox={`${-size / 2} ${-size / 2} ${size} ${size}`}>
         <Arc spec={spec} radius={radius} stroke={stroke} />
-        {!spec.segments && (
-          <text
-            textAnchor="middle"
-            dominantBaseline="central"
-            className="fill-ink font-display text-[13px] font-bold tabular-nums"
-          >
-            {Math.round(Math.min(spec.progress, 9.99) * 100)}%
-          </text>
-        )}
+        {/*
+          A nested <svg> lands at the current origin, which the viewBox puts at
+          the centre — so it renders down and right of where it belongs. Shift it
+          by half its own size in user units; a CSS translate would resolve
+          against the element box and not reliably centre it.
+        */}
+        <g
+          style={{ color: spec.color }}
+          transform={`translate(${(-size * 0.34) / 2}, ${(-size * 0.34) / 2})`}
+        >
+          <Icon name={spec.icon} size={size * 0.34} />
+        </g>
       </svg>
       <span className="text-ink text-center text-[11px] leading-tight font-semibold">
         {spec.label}
@@ -175,11 +179,10 @@ function Legend({ specs }: { specs: RingSpec[] }) {
     <ul className="grid w-full grid-cols-2 gap-x-4 gap-y-1 text-xs">
       {specs.map((spec) => (
         <li key={spec.key} className="flex items-center gap-1.5">
-          <span
-            aria-hidden
-            className="size-2 shrink-0 rounded-full"
-            style={{ background: spec.color }}
-          />
+          {/* The icon does the identifying; nine colours alone cannot. */}
+          <span className="shrink-0" style={{ color: spec.color }}>
+            <Icon name={spec.icon} size={14} />
+          </span>
           <span className="text-muted truncate">{spec.label}</span>
           <span className="text-faint ml-auto shrink-0 tabular-nums">{spec.value}</span>
         </li>

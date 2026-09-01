@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cx } from '../lib/cx';
+import { Icon, type IconName } from './Icon';
 
 export function Card({
   children,
@@ -27,19 +28,27 @@ export function CardLabel({
   children,
   color,
   detail,
+  icon,
 }: {
   children: ReactNode;
   color?: string;
   detail?: ReactNode;
+  icon?: IconName;
 }) {
   return (
-    <header className="mb-3 flex items-baseline gap-2">
-      {color && (
-        <span
-          aria-hidden
-          className="size-2.5 shrink-0 rounded-full"
-          style={{ background: color }}
-        />
+    <header className="mb-3 flex items-center gap-2">
+      {icon ? (
+        <span className="shrink-0" style={color ? { color } : undefined}>
+          <Icon name={icon} size={17} />
+        </span>
+      ) : (
+        color && (
+          <span
+            aria-hidden
+            className="size-2.5 shrink-0 rounded-full"
+            style={{ background: color }}
+          />
+        )
       )}
       <h2 className="text-ink text-sm font-bold tracking-wide uppercase">
         {children}
@@ -103,9 +112,9 @@ export function StepButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className="bg-sunken text-ink border-line grid size-11 shrink-0 place-items-center rounded-full border text-xl leading-none font-bold transition active:scale-90 disabled:opacity-40 disabled:active:scale-100"
+      className="bg-sunken text-ink border-line grid size-11 shrink-0 place-items-center rounded-full border transition active:scale-90 disabled:opacity-40 disabled:active:scale-100"
     >
-      <span aria-hidden>{glyph}</span>
+      <Icon name={glyph === '+' ? 'plus' : 'minus'} size={18} strokeWidth={2.2} />
     </button>
   );
 }

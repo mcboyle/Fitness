@@ -10,6 +10,7 @@ import {
   type MediaRow,
 } from '../api/media';
 import { cx } from '../lib/cx';
+import { Icon } from './Icon';
 import { BigButton, Card } from './ui';
 
 export function PhotosView({ myUserId, partnerName }: { myUserId: string; partnerName: string }) {
@@ -73,8 +74,9 @@ export function PhotosView({ myUserId, partnerName }: { myUserId: string; partne
         <BigButton
           disabled={busy}
           onClick={() => fileInput.current?.click()}
-          className="w-full"
+          className="flex w-full items-center justify-center gap-2"
         >
+          <Icon name="camera" size={18} strokeWidth={2} />
           {busy ? 'Uploading…' : 'Add a photo'}
         </BigButton>
         {error && <p className="text-workout mt-2 text-center text-xs">{error}</p>}

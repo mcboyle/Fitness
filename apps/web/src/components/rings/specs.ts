@@ -1,3 +1,4 @@
+import { RING_ICON, type IconName } from '../Icon';
 import {
   MEALS,
   eatingProgress,
@@ -16,6 +17,7 @@ export type RingKey =
 export interface RingSpec {
   key: RingKey;
   label: string;
+  icon: IconName;
   /** A token reference, never a literal — the Phase 1 ground rule. */
   color: string;
   progress: number;
@@ -68,26 +70,26 @@ export function ringSpecs(log: DailyLog, settings: UserSettings): RingSpec[] {
   const values = ringValues(log, settings);
 
   return [
-    { key: 'water', label: 'Water', color: 'var(--ring-water)', progress: values.water,
+    { key: 'water', icon: RING_ICON.water, label: 'Water', color: 'var(--ring-water)', progress: values.water,
       value: `${log.water_oz} / ${settings.goal_water_oz} oz`, scored: true },
-    { key: 'reading', label: 'Reading', color: 'var(--ring-reading)', progress: values.reading,
+    { key: 'reading', icon: RING_ICON.reading, label: 'Reading', color: 'var(--ring-reading)', progress: values.reading,
       value: `${log.pages_read} / ${settings.goal_pages} pages`, scored: true },
-    { key: 'steps', label: 'Steps', color: 'var(--ring-steps)', progress: stepsProgress(log, settings),
+    { key: 'steps', icon: RING_ICON.steps, label: 'Steps', color: 'var(--ring-steps)', progress: stepsProgress(log, settings),
       value: stepsValue(log, settings), scored: true },
-    { key: 'workout', label: 'Workout', color: 'var(--ring-workout)', progress: values.workout,
+    { key: 'workout', icon: RING_ICON.workout, label: 'Workout', color: 'var(--ring-workout)', progress: values.workout,
       value: `${log.workout_minutes} / ${settings.goal_workout_minutes} min`, scored: true },
-    { key: 'selfcare', label: 'Self-Care', color: 'var(--ring-selfcare)',
+    { key: 'selfcare', icon: RING_ICON.selfcare, label: 'Self-Care', color: 'var(--ring-selfcare)',
       progress: log.self_care ? 1 : 0, value: yesNo(log.self_care), scored: true },
-    { key: 'journal', label: 'Journal', color: 'var(--ring-journal)',
+    { key: 'journal', icon: RING_ICON.journal, label: 'Journal', color: 'var(--ring-journal)',
       progress: log.journaled ? 1 : 0, value: yesNo(log.journaled), scored: true },
 
-    { key: 'sleep', label: 'Sleep', color: 'var(--ring-sleep)',
+    { key: 'sleep', icon: RING_ICON.sleep, label: 'Sleep', color: 'var(--ring-sleep)',
       progress: (log.sleep_minutes ?? 0) / settings.goal_sleep_minutes,
       value: sleepValue(log, settings), scored: false },
-    { key: 'eating', label: 'Eating', color: 'var(--ring-eating)',
+    { key: 'eating', icon: RING_ICON.eating, label: 'Eating', color: 'var(--ring-eating)',
       progress: eatingProgress(log), value: eatingValue(log), scored: false,
       segments: mealSegments(log) },
-    { key: 'alcohol', label: 'No Alcohol', color: 'var(--ring-alcohol)',
+    { key: 'alcohol', icon: RING_ICON.alcohol, label: 'No Alcohol', color: 'var(--ring-alcohol)',
       progress: log.no_alcohol ? 1 : 0, value: yesNo(log.no_alcohol), scored: false },
   ];
 }

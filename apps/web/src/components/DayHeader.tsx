@@ -1,5 +1,6 @@
 import type { Challenge, DailyLog, UserSettings } from '@lifestyle/shared';
 import { cx } from '../lib/cx';
+import { Icon } from './Icon';
 import { SCORED_ITEMS, dayState, scoreCount } from '@lifestyle/shared';
 import {
   addDays,
@@ -50,7 +51,7 @@ export function DayHeader({
         <div>
           <NavButton
             label="Previous day"
-            glyph="‹"
+            icon="prev"
             onClick={() => onDateChange(addDays(date, -1))}
           />
         </div>
@@ -74,7 +75,7 @@ export function DayHeader({
         <div className="flex justify-end gap-2">
           <NavButton
             label="Next day"
-            glyph="›"
+            icon="next"
             disabled={date >= today}
             onClick={() => onDateChange(addDays(date, 1))}
           />
@@ -82,9 +83,9 @@ export function DayHeader({
             type="button"
             onClick={onOpenSettings}
             aria-label="Settings"
-            className="text-muted bg-raised border-line size-10 shrink-0 rounded-full border text-lg"
+            className="text-muted bg-raised border-line grid size-10 shrink-0 place-items-center rounded-full border"
           >
-            ⚙
+            <Icon name="settings" size={19} />
           </button>
         </div>
       </div>
@@ -94,7 +95,12 @@ export function DayHeader({
         weighted. This counter is the fix (spec §4): it makes what actually
         counts legible so an unclosed workout ring can't imply a broken day.
       */}
-      <div className="bg-raised border-line flex items-center gap-3 rounded-2xl border px-4 py-2.5">
+      <div className="bg-raised border-line flex items-center gap-2 rounded-2xl border px-4 py-2.5">
+        <Icon
+          name="streak"
+          size={18}
+          className={streak > 0 ? 'text-workout' : 'text-faint'}
+        />
         <span className="font-display text-ink text-lg font-extrabold tabular-nums">
           {streak}
           <span className="text-faint ml-1 text-xs font-semibold">
@@ -138,12 +144,12 @@ function StateBadge({
 
 function NavButton({
   label,
-  glyph,
+  icon,
   onClick,
   disabled,
 }: {
   label: string;
-  glyph: string;
+  icon: 'prev' | 'next';
   onClick: () => void;
   disabled?: boolean;
 }) {
@@ -153,9 +159,9 @@ function NavButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="text-muted bg-raised border-line size-10 shrink-0 rounded-full border text-xl leading-none disabled:opacity-30"
+      className="text-muted bg-raised border-line grid size-10 shrink-0 place-items-center rounded-full border disabled:opacity-30"
     >
-      {glyph}
+      <Icon name={icon} size={19} />
     </button>
   );
 }

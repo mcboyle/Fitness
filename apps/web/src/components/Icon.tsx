@@ -1,0 +1,89 @@
+export type IconName =
+  | 'today' | 'calendar' | 'photos' | 'body'
+  | 'water' | 'steps' | 'self-care' | 'reading' | 'workout'
+  | 'journal' | 'sleep' | 'eating' | 'no-alcohol'
+  | 'prev' | 'next' | 'settings' | 'plus' | 'minus' | 'check'
+  | 'streak' | 'camera';
+
+/**
+ * One icon from the sprite.
+ *
+ * The symbols carry geometry only — no fill or stroke — so the presentation
+ * lives here: outline icons in `currentColor`, which lets them inherit a ring's
+ * colour or a button's text colour without a second copy of anything. Symbols
+ * that want a solid dot set `fill="currentColor"` themselves and override this.
+ */
+export function Icon({
+  name,
+  size = 20,
+  className,
+  strokeWidth = 1.7,
+}: {
+  name: IconName;
+  size?: number | string;
+  className?: string;
+  strokeWidth?: number;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+      focusable="false"
+    >
+      <use href={`#i-${name}`} />
+    </svg>
+  );
+}
+
+/**
+ * Rendered once at the app root. `<use href="#id">` resolves within the same
+ * document, so the sprite has to be in the tree — not a separate file.
+ */
+export function IconSprite() {
+  return (
+    <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden focusable="false">
+      <symbol id="i-today" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.35" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.25" y="5" width="17.5" height="15.75" rx="2.75"/><path d="M3.25 10h17.5"/><path d="M8 3.25v3.5M16 3.25v3.5"/><circle cx="8.5" cy="14.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="14.5" r="1" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-photos" viewBox="0 0 24 24"><rect x="3.25" y="4.25" width="17.5" height="15.5" rx="3"/><circle cx="8.75" cy="9.5" r="1.6"/><path d="M3.6 17.4 9.5 11.5l3.6 3.6 2.6-2.4 4.7 4.7"/></symbol>
+      <symbol id="i-body" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M7.25 15.5a4.75 4.75 0 1 1 9.5 0"/><path d="M12 15.5 15.6 10.9"/><path d="M7.25 15.5h1.1M15.65 15.5h1.1"/></symbol>
+      <symbol id="i-water" viewBox="0 0 24 24"><path d="M12 3.25c3.6 4.05 6 6.8 6 9.9a6 6 0 0 1-12 0c0-3.1 2.4-5.85 6-9.9z"/><path d="M9.6 13.9a2.4 2.4 0 0 0 2.4 2.4"/></symbol>
+      <symbol id="i-steps" viewBox="0 0 24 24"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0z"/><path d="M20 20v-2.38c0-1.12 1.03-2.12 1-4.62-.03-2.72-1.49-6-4.5-6C14.63 7 14 8.8 14 10.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0z"/><path d="M16 17h4M4 13h5"/></symbol>
+      <symbol id="i-self-care" viewBox="0 0 24 24"><path d="M12 20.6S4.5 16 4.5 10.7A3.9 3.9 0 0 1 12 8.55 3.9 3.9 0 0 1 19.5 10.7c0 5.3-7.5 9.9-7.5 9.9z"/><path d="M18.75 2.25 19.5 4.35 21.6 5.1 19.5 5.85 18.75 7.95 18 5.85 15.9 5.1 18 4.35z"/></symbol>
+      <symbol id="i-reading" viewBox="0 0 24 24"><path d="M12 7.1C10.6 5.75 8.7 5 6.5 5H3.5v12.25H6.5c2.2 0 4.1.75 5.5 2.1"/><path d="M12 7.1C13.4 5.75 15.3 5 17.5 5h3v12.25h-3c-2.2 0-4.1.75-5.5 2.1"/><path d="M12 7.1v12.25"/></symbol>
+      <symbol id="i-workout" viewBox="0 0 24 24"><path d="M3 9.75v4.5M21 9.75v4.5"/><rect x="5.25" y="7.25" width="3.25" height="9.5" rx="1.4"/><rect x="15.5" y="7.25" width="3.25" height="9.5" rx="1.4"/><path d="M8.5 12h7"/></symbol>
+      <symbol id="i-journal" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.75 3v18"/><path d="M11.5 8.75h4.25M11.5 12.5h4.25"/></symbol>
+      <symbol id="i-sleep" viewBox="0 0 24 24"><path d="M20.5 13.4A8.6 8.6 0 1 1 10.6 3.5 6.7 6.7 0 0 0 20.5 13.4z"/></symbol>
+      <symbol id="i-eating" viewBox="0 0 24 24"><path d="M4.5 2.75V8.5a2.75 2.75 0 0 0 2.75 2.75h1.5A2.75 2.75 0 0 0 11.5 8.5V2.75"/><path d="M8 2.75v18.5"/><path d="M19.5 13.5h-1.75a2 2 0 0 1-2-2V7.75a5 5 0 0 1 3.75-5z"/><path d="M19.5 13.5v7.75"/></symbol>
+      <symbol id="i-no-alcohol" viewBox="0 0 24 24"><path d="M7.5 3.5h9v3.4a4.5 4.5 0 0 1-9 0z"/><path d="M12 11.4v8.1M8.5 19.5h7"/><path d="M4.25 20 19.75 4"/></symbol>
+      <symbol id="i-prev" viewBox="0 0 24 24"><path d="M14.75 5 8 12l6.75 7"/></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24"><path d="M9.25 5 16 12l-6.75 7"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><path d="M3.5 7h3.4M11.1 7h9.4"/><circle cx="9" cy="7" r="2.1"/><path d="M3.5 12h9.4M17.1 12h3.4"/><circle cx="15" cy="12" r="2.1"/><path d="M3.5 17h5.4M13.1 17h7.4"/><circle cx="11" cy="17" r="2.1"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.25v13.5M5.25 12h13.5"/></symbol>
+      <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5.25 12h13.5"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M4.75 12.5 9.75 17.5 19.25 6.5"/></symbol>
+      <symbol id="i-streak" viewBox="0 0 24 24"><path d="M12 21.75a6 6 0 0 0 6-6c0-2.05-1-3.95-2.5-5.25.1 1.3-.5 2.3-1.4 2.7.6-2.9-.6-5.6-3-7.5.2 2.6-.9 4.2-2.4 5.7C7.1 13 6 14.6 6 15.75a6 6 0 0 0 6 6z"/><path d="M12 21.75a2.6 2.6 0 0 0 2.6-2.6c0-1.9-2.6-4.4-2.6-4.4s-2.6 2.5-2.6 4.4a2.6 2.6 0 0 0 2.6 2.6z"/></symbol>
+      <symbol id="i-camera" viewBox="0 0 24 24"><path d="M9.4 6.25 10.6 4h2.8l1.2 2.25"/><rect x="3" y="6.25" width="18" height="13.75" rx="3.25"/><circle cx="12" cy="13.25" r="3.5"/></symbol>
+    </svg>
+  );
+}
+
+/** Which icon belongs to each ring, so colour and glyph stay in step. */
+export const RING_ICON = {
+  water: 'water',
+  reading: 'reading',
+  steps: 'steps',
+  workout: 'workout',
+  selfcare: 'self-care',
+  journal: 'journal',
+  sleep: 'sleep',
+  eating: 'eating',
+  alcohol: 'no-alcohol',
+} as const satisfies Record<string, IconName>;

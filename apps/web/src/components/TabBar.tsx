@@ -1,12 +1,13 @@
 import { cx } from '../lib/cx';
+import { Icon, type IconName } from './Icon';
 
 export type View = 'today' | 'calendar' | 'photos' | 'body';
 
-const TABS: { id: View; label: string; glyph: string }[] = [
-  { id: 'today', label: 'Today', glyph: '◎' },
-  { id: 'calendar', label: 'Calendar', glyph: '▦' },
-  { id: 'photos', label: 'Photos', glyph: '▣' },
-  { id: 'body', label: 'Body', glyph: '↧' },
+const TABS: { id: View; label: string; icon: IconName }[] = [
+  { id: 'today', label: 'Today', icon: 'today' },
+  { id: 'calendar', label: 'Calendar', icon: 'calendar' },
+  { id: 'photos', label: 'Photos', icon: 'photos' },
+  { id: 'body', label: 'Body', icon: 'body' },
 ];
 
 /**
@@ -31,9 +32,7 @@ export function TabBar({ view, onChange }: { view: View; onChange: (view: View) 
             view === tab.id ? 'text-accent' : 'text-faint',
           )}
         >
-          <span aria-hidden className="text-lg leading-none">
-            {tab.glyph}
-          </span>
+          <Icon name={tab.icon} size={22} strokeWidth={view === tab.id ? 2 : 1.6} />
           {tab.label}
         </button>
       ))}

@@ -1,5 +1,6 @@
 import { MEALS, type DailyLog, type Meal, type MealState } from '@lifestyle/shared';
 import { cx } from '../lib/cx';
+import { Icon } from './Icon';
 import { Card, CardLabel } from './ui';
 
 type ToggleKey = 'no_alcohol' | 'self_care' | 'journaled';
@@ -63,11 +64,13 @@ export function TogglePills({
               <span
                 aria-hidden
                 className={cx(
-                  'grid size-6 shrink-0 place-items-center rounded-full border-2 text-xs font-black transition',
-                  on ? 'bg-accent border-accent text-accent-contrast' : 'border-line-strong text-transparent',
+                  'grid size-6 shrink-0 place-items-center rounded-full border-2 transition',
+                  on
+                    ? 'bg-accent border-accent text-accent-contrast'
+                    : 'border-line-strong text-transparent',
                 )}
               >
-                ✓
+                <Icon name="check" size={13} strokeWidth={3} />
               </span>
               <span className="min-w-0">
                 <span className="text-ink block text-sm font-bold">{toggle.label}</span>
@@ -105,7 +108,7 @@ function EatingCard({
 
   return (
     <Card>
-      <CardLabel color="var(--ring-eating)" detail={`${logged} / ${MEALS.length} logged`}>
+      <CardLabel icon="eating" color="var(--ring-eating)" detail={`${logged} / ${MEALS.length} logged`}>
         Eating Healthy
       </CardLabel>
 

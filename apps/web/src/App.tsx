@@ -14,6 +14,7 @@ import { PhotosView } from './components/PhotosView';
 import { TabBar, type View } from './components/TabBar';
 import { ReactBar, ReactionInbox } from './components/Reactions';
 import { Confetti, type Intensity } from './components/Confetti';
+import { IconSprite } from './components/Icon';
 import { isDayComplete, ROLLING_GOALS as GOALS } from '@lifestyle/shared';
 import type { ReactionRow } from './api/reactions';
 import { ROLLING_GOALS } from '@lifestyle/shared';
@@ -68,6 +69,7 @@ export default function App() {
   if (!session) {
     return (
       <>
+        <IconSprite />
         {banner}
         <Login onSignedIn={() => setSessionState(getSession())} />
       </>
@@ -75,6 +77,7 @@ export default function App() {
   }
   return (
     <>
+      <IconSprite />
       {banner}
       <Tracker onSignOut={() => setSessionState(null)} />
     </>

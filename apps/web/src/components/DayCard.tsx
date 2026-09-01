@@ -80,7 +80,7 @@ function WaterRow({ log, settings, locked, onPatch }: DayCardProps) {
 
   return (
     <Card>
-      <CardLabel color="var(--ring-water)" detail={met ? 'goal met' : undefined}>
+      <CardLabel icon="water" color="var(--ring-water)" detail={met ? 'goal met' : undefined}>
         Water
       </CardLabel>
       <div className="flex items-center gap-3">
@@ -118,7 +118,7 @@ function ReadingRow({ log, settings, locked, onPatch }: DayCardProps) {
 
   return (
     <Card>
-      <CardLabel color="var(--ring-reading)" detail={met ? 'goal met' : 'any book'}>
+      <CardLabel icon="reading" color="var(--ring-reading)" detail={met ? 'goal met' : 'any book'}>
         Reading
       </CardLabel>
       <div className="flex items-center gap-3">
@@ -182,7 +182,7 @@ function StepsRow({ log, settings, locked, onPatch }: DayCardProps) {
 
   return (
     <Card>
-      <CardLabel color="var(--ring-steps)">Steps</CardLabel>
+      <CardLabel icon="steps" color="var(--ring-steps)">Steps</CardLabel>
 
       {/*
         The other three rows lead with a big number. Without one here a bucket
@@ -283,7 +283,7 @@ function StepsRow({ log, settings, locked, onPatch }: DayCardProps) {
 function WorkoutRow({ log, settings, locked, onPatch }: DayCardProps) {
   return (
     <Card>
-      <CardLabel color="var(--ring-workout)" detail="scored">
+      <CardLabel icon="workout" color="var(--ring-workout)" detail="scored">
         Workout
       </CardLabel>
       <div className="flex items-center gap-3">

@@ -38,7 +38,9 @@ export function SleepCard({
 
   return (
     <Card>
-      <CardLabel detail={met ? 'goal met' : 'last night'}>Sleep</CardLabel>
+      <CardLabel icon="sleep" color="var(--ring-sleep)" detail={met ? 'goal met' : 'last night'}>
+        Sleep
+      </CardLabel>
       <div className="flex items-center gap-3">
         <StepButton
           glyph="−"
