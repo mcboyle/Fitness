@@ -54,7 +54,13 @@ npm run check    # lint + test + smoke — run this before committing
 npm run icons    # regenerate PWA icons from the palette
 npm run api      # Fastify + SQLite on :8787; logs an invite code on an empty db
 npm run twophone # two browser contexts, two users, real sync + offline queue
+
+scripts/snapshot.sh   # hourly via the lifestyle-snapshot systemd timer
 ```
+
+Snapshots are same-disk only — they cover a bad migration, not a dead disk.
+Off-box Litestream (§12) and LUKS (§9) are still outstanding; say so plainly
+rather than letting the timer read as "backups solved".
 
 The app requires an identity now, so `npm run dev` alone opens the login
 screen. Start `npm run api` too; it prints a bootstrap invite code when the

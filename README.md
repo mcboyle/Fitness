@@ -42,6 +42,25 @@ To try it on a phone during Phase 1, hit the dev server's Network URL from
 Safari. A real home-screen install needs a trusted HTTPS origin, so it waits on
 the Cloudflare Tunnel from §12 of the spec — that lands with Phase 2.
 
+## Backups — read this before trusting it
+
+`scripts/snapshot.sh` takes a timestamped, gzipped copy of the SQLite database
+every hour via a systemd timer, keeping the most recent 48. It uses sqlite3's
+backup API rather than `cp`, because the database runs in WAL mode and copying
+the file alone can capture a torn state.
+
+**This is not a backup in the sense the spec means.** The copies sit on the
+same disk as the original, so they protect against a bad migration or an
+accidental delete and *not* against losing the disk. BUILDSPEC §12 asks for
+Litestream streaming off-box, and that is still outstanding — as is LUKS
+encryption of the data volume (§9). Both matter more once Phase 3 puts progress
+photos on disk.
+
+```sh
+scripts/snapshot.sh                       # snapshot now
+systemctl list-timers lifestyle-snapshot  # when the next one runs
+```
+
 ## Layout
 
 ```
