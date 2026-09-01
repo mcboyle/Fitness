@@ -18,7 +18,7 @@ const TABS: { id: View; label: string; icon: IconName }[] = [
 export function TabBar({ view, onChange }: { view: View; onChange: (view: View) => void }) {
   return (
     <nav
-      className="bg-raised border-line sticky bottom-0 z-10 -mx-4 mt-2 flex border-t px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+      className="bg-raised border-line sticky bottom-0 z-10 -mx-4 mt-auto flex border-t px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
       aria-label="Sections"
     >
       {TABS.map((tab) => (

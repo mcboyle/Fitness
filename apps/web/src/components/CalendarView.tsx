@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   addDays,
   applyPauses,
@@ -9,6 +9,7 @@ import {
   type IsoDate,
   type UserSettings,
 } from '@lifestyle/shared';
+import { Icon } from './Icon';
 import { Card } from './ui';
 
 interface PauseRow {
@@ -66,7 +67,6 @@ export function CalendarView({
   pauses,
   settings,
   startDate,
-  days = 35,
 }: {
   myUserId: string;
   myName: string;
@@ -77,20 +77,36 @@ export function CalendarView({
   settings: UserSettings;
   /** Days before the challenge began are not misses — they are not days yet. */
   startDate?: IsoDate;
-  days?: number;
 }) {
   const now = today();
+  const [month, setMonth] = useState(() => now.slice(0, 7)); // YYYY-MM
 
-  /** Whole weeks, so every column really is one weekday. */
+  /**
+   * One month, whole weeks. A rolling 35-day window spanned three months and
+   * started on an arbitrary weekday, which is why it never read as a calendar:
+   * the top-left cell was some random Sunday rather than the 1st.
+   */
   const weeks = useMemo(() => {
-    const last = addDays(now, 6 - parts(now).weekday); // pad to Saturday
-    const first = addDays(addDays(now, -(days - 1)), -parts(addDays(now, -(days - 1))).weekday);
+    const [y, m] = month.split('-').map(Number);
+    const firstOfMonth = `${month}-01`;
+    const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const lastOfMonth = `${month}-${String(daysInMonth).padStart(2, '0')}`;
+
+    const gridStart = addDays(firstOfMonth, -parts(firstOfMonth).weekday);
+    const gridEnd = addDays(lastOfMonth, 6 - parts(lastOfMonth).weekday);
+
     const out: IsoDate[][] = [];
-    for (let cursor = first; cursor <= last; cursor = addDays(cursor, 7)) {
+    for (let cursor = gridStart; cursor <= gridEnd; cursor = addDays(cursor, 7)) {
       out.push(Array.from({ length: 7 }, (_, i) => addDays(cursor, i)));
     }
     return out;
-  }, [now, days]);
+  }, [month]);
+
+  const shiftMonth = (delta: number) => {
+    const [y, m] = month.split('-').map(Number);
+    const shifted = new Date(Date.UTC(y, m - 1 + delta, 1));
+    setMonth(shifted.toISOString().slice(0, 7));
+  };
 
   const rows = useMemo(() => {
     const byUser = new Map<string, Map<IsoDate, DailyLog>>();
@@ -112,19 +128,36 @@ export function CalendarView({
       .map((id) => ({ id, name: 'Someone' })),
   ];
 
-  const first = weeks[0]?.[0];
-  const last = weeks.at(-1)?.at(-1);
-  const span =
-    first && last
-      ? parts(first).m === parts(last).m
-        ? MONTHS[parts(last).m - 1]
-        : `${MONTHS[parts(first).m - 1]} – ${MONTHS[parts(last).m - 1]}`
-      : '';
+  const [year, monthNumber] = month.split('-').map(Number);
+  const atCurrentMonth = month >= now.slice(0, 7);
 
   return (
     <Card>
-      <h2 className="text-ink text-sm font-bold tracking-wide uppercase">{span}</h2>
-      <p className="text-faint mb-4 text-xs">Last {days} days — both streaks, one grid.</p>
+      <div className="mb-4 flex items-center gap-2">
+        <button
+          type="button"
+          aria-label="Previous month"
+          onClick={() => shiftMonth(-1)}
+          className="text-muted bg-sunken border-line grid size-8 shrink-0 place-items-center rounded-full border"
+        >
+          <Icon name="prev" size={15} />
+        </button>
+        <div className="min-w-0 flex-1 text-center">
+          <h2 className="text-ink text-sm font-bold tracking-wide uppercase">
+            {MONTHS[monthNumber - 1]} {year}
+          </h2>
+          <p className="text-faint text-xs">Both streaks, one grid.</p>
+        </div>
+        <button
+          type="button"
+          aria-label="Next month"
+          disabled={atCurrentMonth}
+          onClick={() => shiftMonth(1)}
+          className="text-muted bg-sunken border-line grid size-8 shrink-0 place-items-center rounded-full border disabled:opacity-30"
+        >
+          <Icon name="next" size={15} />
+        </button>
+      </div>
 
       <div className="grid gap-5">
         {people.map((person) => (
@@ -143,6 +176,7 @@ export function CalendarView({
               {weeks.map((week) => (
                 <div key={week[0]} className="grid grid-cols-7 gap-1">
                   {week.map((date) => {
+                    const outsideMonth = !date.startsWith(month);
                     const log = rows.get(person.id)?.get(date);
                     const beforeChallenge = startDate ? date < startDate : false;
 
@@ -154,7 +188,9 @@ export function CalendarView({
                      * challenge begins.
                      */
                     const state =
-                      date > now
+                      outsideMonth
+                        ? 'outside'
+                        : date > now
                         ? 'future'
                         : beforeChallenge
                           ? log && dayState(log, settings, date, now) === 'complete'
@@ -175,14 +211,20 @@ export function CalendarView({
                           // The number has to stay readable on a filled cell and
                           // on an empty one, which are opposite backgrounds.
                           color: filled ? 'var(--surface)' : 'var(--text-faint)',
-                          border: filled ? undefined : '1px solid var(--border)',
-                          outline: date === now ? '2px solid var(--accent)' : undefined,
+                          border:
+                            filled || outsideMonth ? undefined : '1px solid var(--border)',
+                          // Only mark today inside its own month; the padding
+                          // cells belong to the neighbouring month.
+                          outline:
+                            date === now && !outsideMonth
+                              ? '2px solid var(--accent)'
+                              : undefined,
                           outlineOffset: '1px',
                           opacity: state === 'future' ? 0.4 : 1,
                         }}
                       >
                         {/* The 1st names its month, so a grid spanning two is readable. */}
-                        {d === 1 ? MONTHS[parts(date).m - 1].slice(0, 3) : d}
+                        {outsideMonth ? '' : d}
                       </div>
                     );
                   })}

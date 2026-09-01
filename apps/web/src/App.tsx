@@ -264,7 +264,7 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
          * black-translucent. Without this the day header sits behind the clock
          * and the settings gear behind the battery.
          */
-        paddingTop: 'max(1rem, env(safe-area-inset-top))',
+        paddingTop: 'max(1.25rem, calc(env(safe-area-inset-top) + 0.5rem))',
         paddingLeft: 'max(1rem, env(safe-area-inset-left))',
         paddingRight: 'max(1rem, env(safe-area-inset-right))',
       }}
@@ -381,11 +381,12 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
       </>
       )}
 
+      <SyncTrouble status={syncState.status} pending={syncState.pending} />
+
       <TabBar view={view} onChange={setView} />
 
       <Confetti fire={celebrating} onDone={() => setCelebrating(null)} />
 
-      <SyncFooter status={syncState.status} pending={syncState.pending} />
 
       {settingsOpen && (
         <SettingsSheet
@@ -437,38 +438,44 @@ function usePauses(): PauseRow[] {
   return (useLiveQuery(() => db.pauses.toArray(), []) ?? []) as unknown as PauseRow[];
 }
 
-function SyncFooter({ status, pending }: { status: string; pending: number }) {
-  const label =
-    status === 'offline'
-      ? pending > 0
-        ? `Offline — ${pending} change${pending === 1 ? '' : 's'} waiting`
-        : 'Offline'
-      : status === 'syncing'
-        ? 'Syncing…'
-        : status === 'error'
-          ? 'Sync failed — will retry'
-          : pending > 0
-            ? `${pending} waiting`
-            : 'Synced';
+/**
+ * Only speaks up when something is wrong.
+ *
+ * A permanent "Synced" line is noise — it says nothing on the overwhelming
+ * majority of renders, and it sat below the sticky tab bar leaving dead space
+ * under it. Offline with queued writes is worth knowing about; everything
+ * working is not.
+ */
+function SyncTrouble({ status, pending }: { status: string; pending: number }) {
+  if (status !== 'offline' && status !== 'error') return null;
 
   return (
-    <footer className="text-faint px-1 pt-2 text-xs">{label}</footer>
+    <p className="bg-sunken text-faint rounded-2xl px-4 py-2 text-center text-xs">
+      {status === 'offline'
+        ? pending > 0
+          ? `Offline — ${pending} change${pending === 1 ? '' : 's'} will sync when you reconnect`
+          : 'Offline — your entries are saved on this device'
+        : 'Sync failed — retrying'}
+    </p>
   );
 }
 
-/**
- * `users` isn't a synced table — the only thing the UI needs from it is the
- * partner's name, so it comes from /me and is cached for the session.
- */
+/** Every stored log for both users — the shared calendar draws from this. */
+function useAllLogs() {
+  return useLiveQuery(() => db.daily_log.toArray(), []) ?? [];
+}
+
+function useReactions(): ReactionRow[] {
+  return (useLiveQuery(() => db.reactions.toArray(), []) ?? []) as unknown as ReactionRow[];
+}
+
 /**
  * The partner's id comes from synced data, not from /me.
  *
  * `user_settings` carries a row per user and is pulled for both, so the id is
  * available offline and stays correct however the two of you joined. A /me
- * fetched once at mount goes stale the moment she claims her invite — which is
- * exactly how the shared calendar ended up rendering one row instead of two.
- *
- * Only the display name needs the network, and "Partner" is a fine placeholder.
+ * fetched once at mount goes stale the moment they claim their invite — which
+ * is exactly how the shared calendar ended up rendering one row instead of two.
  */
 function usePartner(myUserId: string): { id: string | null; name: string } {
   const [name, setName] = useState('Partner');
@@ -497,13 +504,4 @@ function usePartner(myUserId: string): { id: string | null; name: string } {
   }, [id]);
 
   return { id, name };
-}
-
-/** Every stored log for both users — the shared calendar draws from this. */
-function useAllLogs() {
-  return useLiveQuery(() => db.daily_log.toArray(), []) ?? [];
-}
-
-function useReactions(): ReactionRow[] {
-  return (useLiveQuery(() => db.reactions.toArray(), []) ?? []) as unknown as ReactionRow[];
 }
