@@ -100,18 +100,34 @@ the streak.
 
 ## Layout
 
+npm workspaces. Run every command from the repo root.
+
 ```
-src/
-  lib/time.ts        day boundaries, edit window, rolling windows
-  lib/scoring.ts     the six scored items, completion, streaks
-  lib/rolling.ts     trailing 7-day goals
-  db/types.ts        the frozen schema, in TypeScript
-  db/db.ts           Dexie — all ten tables declared, four used in Phase 1
-  db/repo.ts         the only write path
-  components/rings/  hand-rolled SVG rings, both layouts
-  styles/tokens.css  every colour in the app
-scripts/             icons, screenshots, smoke, killport
+packages/shared/src/   the contract between client and server
+  types.ts             the frozen schema, in TypeScript
+  time.ts              APP_TIMEZONE, day boundaries, the edit window
+  scoring.ts           the six scored items, completion, streaks
+  rolling.ts           trailing 7-day goals
+  defaults.ts          goal defaults + a pure empty-day factory
+
+apps/web/src/          the PWA
+  db/db.ts             Dexie — all ten tables declared, four used so far
+  db/repo.ts           the only write path
+  db/defaults.ts       LOCAL_USER_ID, deviceId, browser wrapper for emptyLog
+  components/rings/    hand-rolled SVG rings, both layouts
+  styles/tokens.css    every colour in the app
+
+apps/api/              Fastify + SQLite
+scripts/               icons, screenshots, smoke, killport
 ```
+
+**`packages/shared` must stay environment-free** — no DOM, no Node, no Dexie.
+The server maintains `challenge_members.current_streak` and enforces the edit
+window with these exact functions; two copies of the streak rules would drift
+and nobody would notice until a phone and the server disagreed about a streak.
+
+It is consumed as **TypeScript source** (`exports` points at `src/index.ts`),
+so there is no build-ordering problem between the packages.
 
 ## Phase
 

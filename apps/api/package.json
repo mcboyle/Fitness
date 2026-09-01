@@ -1,0 +1,16 @@
+{
+  "name": "@lifestyle/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"api: not implemented until Step 2\"",
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@lifestyle/shared": "*"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2"
+  }
+}

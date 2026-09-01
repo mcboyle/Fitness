@@ -11,7 +11,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const OUT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../public');
+const OUT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../apps/web/public');
 
 const SURFACE = [0x12, 0x07, 0x0c];
 const TRACK = [0x2a, 0x16, 0x20];

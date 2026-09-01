@@ -33,6 +33,7 @@ if (LAN_IP) ORIGINS.push(`http://${LAN_IP}:${PORT}`);
 // orphans the vite child, which then keeps serving the build to the whole LAN
 // — that happened four times before anyone noticed. See MISTAKES.md #6.
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT)], {
+  cwd: new URL('../apps/web/', import.meta.url),
   stdio: ['ignore', 'pipe', 'pipe'],
   detached: true,
 });
