@@ -23,6 +23,14 @@
   --ring-reading: #c77dff;
   --ring-steps: #ff7aa8;
   --ring-workout: #ff2d78;
+  /* Nine rings need nine hues. These extend the pink family outward rather
+     than abandoning it — colour alone can't separate nine, which is why every
+     layout keeps a label. */
+  --ring-sleep: #8f7dff;
+  --ring-eating: #ffa94d;
+  --ring-journal: #ffd43b;
+  --ring-alcohol: #4dd4ac;
+  --ring-selfcare: #ff6fd8;
   --ring-track: #2a1620;
 
   --accent: #ff2d78;
@@ -51,6 +59,11 @@
   --ring-reading: #a855f7;
   --ring-steps: #f2699a;
   --ring-workout: #e01b60;
+  --ring-sleep: #6c5ce7;
+  --ring-eating: #e8590c;
+  --ring-journal: #b8860b;
+  --ring-alcohol: #0ca678;
+  --ring-selfcare: #d6336c;
   --ring-track: #fbdde8;
 
   --accent: #e01b60;

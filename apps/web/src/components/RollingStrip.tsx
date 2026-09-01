@@ -8,32 +8,40 @@ import { Card } from './ui';
  * Documentaries and progress photos have no entry UI until Phase 3; the counts
  * here are live reads of tables that are simply still empty.
  */
-export function RollingStrip({ window }: { window: RollingWindow }) {
+export function RollingStrip({
+  windows,
+}: {
+  /** One row per member — these goals are mutually visible like everything else. */
+  windows: { name: string; window: RollingWindow }[];
+}) {
   return (
     <Card>
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-        <span className="text-faint text-xs font-bold tracking-wide uppercase">
-          Last 7 days
-        </span>
-        <Goal
-          label="Workouts"
-          count={window.workouts}
-          goal={ROLLING_GOALS.workouts}
-          color="var(--ring-workout)"
-        />
-        <Goal
-          label="Docs"
-          count={window.documentaries}
-          goal={ROLLING_GOALS.documentaries}
-          color="var(--ring-reading)"
-        />
-        <Goal
-          label="Photo"
-          count={window.photos}
-          goal={ROLLING_GOALS.photos}
-          color="var(--ring-steps)"
-        />
-      </div>
+      <span className="text-faint text-xs font-bold tracking-wide uppercase">
+        Last 7 days
+      </span>
+      {windows.map(({ name, window }) => (
+        <div key={name} className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+          <span className="text-muted w-full text-xs font-semibold">{name}</span>
+          <Goal
+            label="Workouts"
+            count={window.workouts}
+            goal={ROLLING_GOALS.workouts}
+            color="var(--ring-workout)"
+          />
+          <Goal
+            label="Docs"
+            count={window.documentaries}
+            goal={ROLLING_GOALS.documentaries}
+            color="var(--ring-reading)"
+          />
+          <Goal
+            label="Photo"
+            count={window.photos}
+            goal={ROLLING_GOALS.photos}
+            color="var(--ring-steps)"
+          />
+        </div>
+      ))}
     </Card>
   );
 }

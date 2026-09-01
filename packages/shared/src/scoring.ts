@@ -1,16 +1,22 @@
-import type { DailyLog, UserSettings } from './types';
+import { MEALS, type DailyLog, type MealState, type UserSettings } from './types';
 import { addDays, type IsoDate } from './time';
 
 /**
- * Spec §4. Six items score toward daily completion. Workout, whole food,
- * no alcohol and no junk food are tracked, charted and visible — they just
- * don't gate the streak.
+ * Six items score toward daily completion.
+ *
+ * Changed from §4 on request after a week of use: sleep left the scored set and
+ * workout joined it. The spec deliberately left workout unscored so a rest day
+ * never reads as failure, its goal being 4-in-7 — so a rest day now costs one
+ * of six. The threshold is what absorbs that, and it is user-editable.
+ *
+ * Sleep, Eating Healthy and no-alcohol are tracked, charted, given rings and
+ * visible to everyone — they just don't gate the streak.
  */
 export const SCORED_ITEMS = [
   'steps',
   'water',
   'reading',
-  'sleep',
+  'workout',
   'self_care',
   'journaled',
 ] as const;
@@ -21,7 +27,7 @@ export const SCORED_LABELS: Record<ScoredItem, string> = {
   steps: 'Steps',
   water: 'Water',
   reading: 'Reading',
-  sleep: 'Sleep',
+  workout: 'Workout',
   self_care: 'Self-Care',
   journaled: 'Daily Journal',
 };
@@ -51,6 +57,26 @@ export function ringValues(log: DailyLog, settings: UserSettings): RingValues {
   };
 }
 
+/**
+ * Eating Healthy: three meals, each healthy or not.
+ *
+ * The ring fills a third per *logged* meal, so a full ring means three meals
+ * were recorded — the unhealthy ones simply render in the warning colour. An
+ * unlogged meal and an unhealthy one are different states and must not look
+ * alike.
+ */
+export function mealSegments(log: DailyLog): MealState[] {
+  return MEALS.map((meal) => log[meal]);
+}
+
+export function eatingProgress(log: DailyLog): number {
+  return mealSegments(log).filter((meal) => meal != null).length / MEALS.length;
+}
+
+export function healthyMeals(log: DailyLog): number {
+  return mealSegments(log).filter((meal) => meal === 'healthy').length;
+}
+
 /** Exact count wins when present; otherwise the bucket fills in thirds. */
 export function stepsProgress(log: DailyLog, settings: UserSettings): number {
   if (log.steps != null) return ratio(log.steps, settings.goal_steps);
@@ -66,7 +92,7 @@ export function scoredStatus(
     steps: stepsProgress(log, settings) >= 1,
     water: log.water_oz >= settings.goal_water_oz,
     reading: log.pages_read >= settings.goal_pages,
-    sleep: (log.sleep_minutes ?? 0) >= settings.goal_sleep_minutes,
+    workout: log.workout_minutes >= settings.goal_workout_minutes,
     self_care: log.self_care,
     journaled: log.journaled,
   };

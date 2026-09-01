@@ -3,8 +3,14 @@ import type { IsoDate } from './time';
 export type UserId = string;
 
 export type StepsBucket = 'low' | 'mid' | 'high';
-export type WorkoutType = 'strength' | 'cardio' | 'dance' | 'other';
-export type RingLayout = 'concentric' | 'grid';
+export type WorkoutType = 'strength' | 'cardio' | 'dance' | 'pilates' | 'other';
+
+/** One meal. `null` means not logged, which is not the same as unhealthy. */
+export type MealState = 'healthy' | 'unhealthy' | null;
+
+export const MEALS = ['breakfast', 'lunch', 'dinner'] as const;
+export type Meal = (typeof MEALS)[number];
+export type RingLayout = 'concentric' | 'grid' | 'tiered';
 export type Theme = 'dark' | 'light';
 export type StepEntryMode = 'buckets' | 'exact' | 'both';
 
@@ -64,6 +70,10 @@ export interface DailyLog {
   pages_read: number;
   workout_minutes: number;
   workout_type: WorkoutType | null;
+  breakfast: MealState;
+  lunch: MealState;
+  dinner: MealState;
+  /** Superseded by the three meals above; kept so old rows still read. */
   whole_food: boolean;
   no_alcohol: boolean;
   no_junk_food: boolean;

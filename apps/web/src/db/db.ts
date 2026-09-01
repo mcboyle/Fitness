@@ -72,6 +72,26 @@ class LifestyleDB extends Dexie {
     // Phase 2: the pending-write queue. Every mutation lands locally first and
     // enqueues here, so the UI never blocks on the network (§10).
     this.version(3).stores({ outbox: '++id, table, created_at' });
+
+    /*
+     * Eating Healthy replaces the whole-food and no-junk-food toggles. A day
+     * marked as both is the closest the old model came to "three healthy
+     * meals"; anything less stays unlogged rather than invented, because an
+     * unrecorded meal and an unhealthy one are different states and the ring
+     * draws them differently. Mirrors migration 1 on the server.
+     */
+    this.version(4).upgrade(async (tx) =>
+      tx
+        .table('daily_log')
+        .toCollection()
+        .modify((row: Record<string, unknown>) => {
+          if (row.breakfast !== undefined) return;
+          const healthy = row.whole_food === true && row.no_junk_food === true;
+          row.breakfast = healthy ? 'healthy' : null;
+          row.lunch = healthy ? 'healthy' : null;
+          row.dinner = healthy ? 'healthy' : null;
+        }),
+    );
   }
 }
 

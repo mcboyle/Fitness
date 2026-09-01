@@ -6,7 +6,9 @@
  * server cannot drift — the server maintains `challenge_members.current_streak`
  * and enforces the edit window using these exact functions.
  */
-export type * from './types';
+// Plain `export *`, not `export type *`: types.ts now carries a runtime value
+// (MEALS) alongside the type declarations.
+export * from './types';
 export * from './defaults';
 export * from './rolling';
 export * from './scoring';

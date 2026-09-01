@@ -12,7 +12,7 @@ const BUCKETS: { value: StepsBucket; label: string }[] = (
   ['low', 'mid', 'high'] as StepsBucket[]
 ).map((value) => ({ value, label: BUCKET_LABEL[value] }));
 
-const WORKOUT_TYPES: WorkoutType[] = ['strength', 'cardio', 'dance', 'other'];
+const WORKOUT_TYPES: WorkoutType[] = ['strength', 'cardio', 'dance', 'pilates', 'other'];
 
 
 /**
@@ -283,7 +283,7 @@ function StepsRow({ log, settings, locked, onPatch }: DayCardProps) {
 function WorkoutRow({ log, settings, locked, onPatch }: DayCardProps) {
   return (
     <Card>
-      <CardLabel color="var(--ring-workout)" detail="not scored daily">
+      <CardLabel color="var(--ring-workout)" detail="scored">
         Workout
       </CardLabel>
       <div className="flex items-center gap-3">

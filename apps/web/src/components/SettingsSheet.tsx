@@ -50,13 +50,14 @@ export function SettingsSheet({
           </Row>
           <Row
             label="Rings"
-            hint="Decide this on a real device, not in a mockup."
+            hint="Nine rings. Grid labels them all; tiered puts the six scored ones first; concentric stacks every one. Decide on a real device."
           >
             <Segmented<RingLayout>
               value={settings.ring_layout}
               options={[
+                { value: 'grid', label: '3×3 grid' },
+                { value: 'tiered', label: 'Tiered' },
                 { value: 'concentric', label: 'Concentric' },
-                { value: 'grid', label: '2×2 grid' },
               ]}
               onChange={(ring_layout) => onChange({ ring_layout })}
             />

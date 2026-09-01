@@ -12,6 +12,9 @@ import { DocumentaryCard } from './components/DocumentaryCard';
 import { PhotosView } from './components/PhotosView';
 import { TabBar, type View } from './components/TabBar';
 import { ReactBar, ReactionInbox } from './components/Reactions';
+import { Confetti } from './components/Confetti';
+import { claimCelebration } from './lib/celebrate';
+import { isDayComplete, ROLLING_GOALS as GOALS } from '@lifestyle/shared';
 import type { ReactionRow } from './api/reactions';
 import { ROLLING_GOALS } from '@lifestyle/shared';
 import { DayCard } from './components/DayCard';
@@ -57,6 +60,7 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
   const [notice, setNotice] = useState<string | null>(null);
 
   const [view, setView] = useState<View>('today');
+  const [celebrating, setCelebrating] = useState(false);
   const [syncState, setSyncState] = useState<{ status: string; pending: number }>({
     status: 'idle',
     pending: 0,
@@ -111,16 +115,53 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
   const partner = usePartner(session.user_id);
   const partnerName = partner.name;
   const allLogs = useAllLogs();
-  const myDocumentaries = documentaries.filter((d) => d.user_id === session.user_id);
   const partnerLogs = usePartnerLogs(session.user_id, date);
   const pauses = usePauses();
   const reactions = useReactions();
   const [inboxDismissed, setInboxDismissed] = useState(false);
 
-  const rolling = useMemo(
-    () => rollingWindow([...byDate.values()], documentaries, media, date),
-    [byDate, documentaries, media, date],
-  );
+  /** One rolling window per member — these goals are mutually visible (§1). */
+  const rollingWindows = useMemo(() => {
+    const logs = [...byDate.values(), ...partnerLogs];
+    const people = [
+      { id: session.user_id, name: 'You' },
+      ...(partner.id ? [{ id: partner.id, name: partnerName }] : []),
+    ];
+    return people.map(({ id, name }) => ({
+      name,
+      window: rollingWindow(
+        logs.filter((l) => l.user_id === id),
+        documentaries.filter((d) => d.user_id === id),
+        media.filter((m) => m.user_id === id),
+        date,
+      ),
+    }));
+  }, [byDate, partnerLogs, documentaries, media, date, session.user_id, partner.id, partnerName]);
+
+  /*
+   * Celebrate crossing the completion threshold, and meeting a rolling 7-day
+   * goal. Keyed by date and goal so each fires exactly once, ever — not on
+   * every reload of an already-complete day.
+   */
+  useEffect(() => {
+    if (!settings || !storedLog) return;
+
+    const events: string[] = [];
+    if (isDayComplete(storedLog, settings)) events.push(`day:${date}`);
+
+    const mine = rollingWindows[0]?.window;
+    if (mine) {
+      if (mine.workouts >= GOALS.workouts) events.push(`week:workouts:${date}`);
+      if (mine.documentaries >= GOALS.documentaries) events.push(`week:docs:${date}`);
+      if (mine.photos >= GOALS.photos) events.push(`week:photo:${date}`);
+    }
+
+    // Guarded by claimCelebration, which is backed by localStorage and returns
+    // true exactly once per event — so this cannot cascade. The external system
+    // being synchronised with is that record of what has already been shown.
+    // oxlint-disable-next-line react/set-state-in-effect
+    if (events.some(claimCelebration)) setCelebrating(true);
+  }, [settings, storedLog, date, rollingWindows]);
 
   if (!settings) return <Splash />;
 
@@ -225,11 +266,13 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
         locked={locked}
         onPatch={onPatch}
       />
-      <RollingStrip window={rolling} />
+      <RollingStrip windows={rollingWindows} />
 
       <DocumentaryCard
-        recent={myDocumentaries}
+        recent={documentaries}
         goal={ROLLING_GOALS.documentaries}
+        myUserId={session.user_id}
+        nameFor={(id) => (id === partner.id ? partnerName : 'Someone')}
       />
 
       {partnerLog && settings && (
@@ -256,6 +299,8 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
       )}
 
       <TabBar view={view} onChange={setView} />
+
+      <Confetti fire={celebrating} onDone={() => setCelebrating(false)} />
 
       <SyncFooter status={syncState.status} pending={syncState.pending} onSignOut={onSignOut} />
 

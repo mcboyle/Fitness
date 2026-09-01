@@ -247,19 +247,25 @@ await A.getByRole('button', { name: 'Settings' }).click(); await A.waitForTimeou
 await shot(A, '03-settings-dark');
 await maybeClick(A, 'Light', true); await A.waitForTimeout(600);
 await shot(A, '04-settings-light');
-await maybeClick(A, '2×2 grid', true); await A.waitForTimeout(400);
 await A.getByRole('button', { name: 'Close settings' }).click(); await A.waitForTimeout(700);
 
-await walk('05-light-grid');
+// All three ring layouts, which is the decision this tour exists to inform.
+for (const [name, label] of [['grid', '3×3 grid'], ['tiered', 'Tiered'], ['concentric', 'Concentric']]) {
+  await A.getByRole('button', { name: 'Settings' }).click(); await A.waitForTimeout(500);
+  await maybeClick(A, label, true); await A.waitForTimeout(400);
+  await A.getByRole('button', { name: 'Close settings' }).click(); await A.waitForTimeout(900);
+  await shot(A, `05-rings-${name}`);
+}
+await walk('06-light');
 
 // A locked day: outside the today/yesterday edit window.
 await A.getByRole('button', { name: 'Today', exact: true }).click(); await A.waitForTimeout(400);
 for (let i = 0; i < 3; i += 1) { await A.getByRole('button', { name: 'Previous day' }).click(); await A.waitForTimeout(200); }
 await A.waitForTimeout(800);
-await shot(A, '06-locked-day');
+await shot(A, '07-locked-day');
 
 // The partner's view, for contrast.
-await shot(B, '07-partner-view');
+await shot(B, '08-partner-view');
 
 console.log(`\n  ${shots.length} screenshots -> ${OUT}`);
 console.log(errs.length ? `  console errors:\n   ${errs.join('\n   ')}` : '  no console errors');

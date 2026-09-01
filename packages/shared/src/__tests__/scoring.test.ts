@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, emptyDailyLog } from '../defaults';
 import type { DailyLog, UserSettings } from '../types';
 import {
+  SCORED_ITEMS,
   bestStreak,
   computeStreak,
+  eatingProgress,
+  healthyMeals,
   isDayComplete,
   scoreCount,
   stepsProgress,
@@ -36,21 +39,46 @@ const complete = {
   journaled: true,
 } satisfies Partial<DailyLog>;
 
+/** Sleep left the scored set and workout joined it. */
+const SCORES_NOW = ['steps', 'water', 'reading', 'workout', 'self_care', 'journaled'];
+
 function history(entries: DailyLog[]) {
   return new Map(entries.map((e) => [e.date, e]));
 }
 
 describe('scoring', () => {
   it('counts only the six scored items', () => {
+    expect([...SCORED_ITEMS]).toEqual(SCORES_NOW);
+
     // Every unscored item set, nothing scored: still zero.
     const unscored = log('2026-09-01', {
-      workout_minutes: 90,
-      whole_food: true,
+      sleep_minutes: 480,
       no_alcohol: true,
-      no_junk_food: true,
+      breakfast: 'healthy',
+      lunch: 'healthy',
+      dinner: 'healthy',
     });
     expect(scoreCount(unscored, settings)).toBe(0);
     expect(isDayComplete(unscored, settings)).toBe(false);
+  });
+
+  it('scores workout, which the spec left unscored', () => {
+    const rested = log('2026-09-01', { ...complete, workout_minutes: 0 });
+    const trained = log('2026-09-01', { ...complete, workout_minutes: 45 });
+    expect(scoreCount(rested, settings)).toBe(4);
+    expect(scoreCount(trained, settings)).toBe(5);
+  });
+
+  it('distinguishes an unlogged meal from an unhealthy one', () => {
+    expect(eatingProgress(log('2026-09-01'))).toBe(0);
+    expect(eatingProgress(log('2026-09-01', { breakfast: 'unhealthy' }))).toBeCloseTo(1 / 3);
+    expect(healthyMeals(log('2026-09-01', { breakfast: 'unhealthy' }))).toBe(0);
+    expect(
+      eatingProgress(log('2026-09-01', { breakfast: 'healthy', lunch: 'unhealthy', dinner: 'healthy' })),
+    ).toBe(1);
+    expect(
+      healthyMeals(log('2026-09-01', { breakfast: 'healthy', lunch: 'unhealthy', dinner: 'healthy' })),
+    ).toBe(2);
   });
 
   it('completes at the threshold, not at all six', () => {

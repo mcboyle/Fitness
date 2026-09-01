@@ -20,6 +20,11 @@
   --color-reading: var(--ring-reading);
   --color-steps: var(--ring-steps);
   --color-workout: var(--ring-workout);
+  --color-sleep: var(--ring-sleep);
+  --color-eating: var(--ring-eating);
+  --color-journal: var(--ring-journal);
+  --color-alcohol: var(--ring-alcohol);
+  --color-selfcare: var(--ring-selfcare);
   --color-track: var(--ring-track);
 
   --color-accent: var(--accent);

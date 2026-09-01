@@ -11,9 +11,14 @@ import { BigButton, Card, CardLabel } from './ui';
 export function DocumentaryCard({
   recent,
   goal,
+  nameFor,
+  myUserId,
 }: {
+  /** Everyone's, not just yours — documentaries are mutually visible (§1). */
   recent: Documentary[];
   goal: number;
+  nameFor: (userId: string) => string;
+  myUserId: string;
 }) {
   const [title, setTitle] = useState('');
   const [open, setOpen] = useState(false);
@@ -28,13 +33,18 @@ export function DocumentaryCard({
 
   return (
     <Card>
-      <CardLabel detail={`${recent.length}/${goal} last 7 days`}>Documentaries</CardLabel>
+      <CardLabel detail={`you ${recent.filter((r) => r.user_id === myUserId).length}/${goal} last 7 days`}>
+        Documentaries
+      </CardLabel>
 
       {recent.length > 0 && (
         <ul className="mb-3 grid gap-1">
           {recent.map((row) => (
             <li key={row.id} className="flex items-baseline gap-2 text-sm">
               <span className="text-ink truncate">{row.title}</span>
+              {row.user_id !== myUserId && (
+                <span className="text-faint shrink-0 text-xs">{nameFor(row.user_id)}</span>
+              )}
               <span className="text-faint ml-auto shrink-0 text-xs">
                 {formatDayLabel(row.watched_on)}
               </span>

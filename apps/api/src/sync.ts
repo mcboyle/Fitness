@@ -13,6 +13,7 @@ const WRITABLE: Record<string, string[]> = {
     'challenge_id', 'steps', 'steps_bucket', 'sleep_minutes', 'water_oz',
     'pages_read', 'workout_minutes', 'workout_type', 'whole_food', 'no_alcohol',
     'no_junk_food', 'self_care', 'journaled', 'logged_late', 'device_id',
+    'breakfast', 'lunch', 'dinner',
   ],
   user_settings: [
     'goal_water_oz', 'goal_pages', 'goal_steps', 'goal_workout_minutes',
