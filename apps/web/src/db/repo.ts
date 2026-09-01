@@ -2,7 +2,13 @@ import { db } from './db';
 import { DEFAULT_SETTINGS, deviceId, emptyLog } from './defaults';
 import { currentUserId } from '../api/session';
 import { enqueue } from '../api/sync';
-import type { Challenge, DailyLog, UserSettings } from '@lifestyle/shared';
+import type {
+  Challenge,
+  DailyLog,
+  Documentary,
+  Measurement,
+  UserSettings,
+} from '@lifestyle/shared';
 import { newId } from '../lib/id';
 import { addDays, isEditable, type IsoDate, today } from '@lifestyle/shared';
 
@@ -178,4 +184,69 @@ export async function patchLogAndSync(
 
 export async function logsBetween(from: IsoDate, to: IsoDate): Promise<DailyLog[]> {
   return db.daily_log.where('date').between(from, to, true, true).toArray();
+}
+
+/* ---------- Phase 3: measurements, documentaries ---------- */
+
+/**
+ * Neither of these is gated by the edit window. §6 scopes that lock to
+ * `daily_log` only — none of these gate the streak, and refusing to let
+ * someone correct last month's weight is friction with no integrity benefit.
+ */
+export async function saveMeasurement(
+  input: Partial<Measurement> & { taken_on: IsoDate },
+): Promise<Measurement> {
+  const now = new Date().toISOString();
+  const row: Measurement = {
+    id: input.id ?? newId(),
+    user_id: currentUserId(),
+    taken_on: input.taken_on,
+    weight_lb: input.weight_lb ?? null,
+    waist_in: input.waist_in ?? null,
+    hip_in: input.hip_in ?? null,
+    arm_in: input.arm_in ?? null,
+    thigh_in: input.thigh_in ?? null,
+    notes: input.notes ?? null,
+    created_at: input.created_at ?? now,
+  };
+
+  await db.measurements.put(row);
+  await enqueue({
+    table: 'measurements',
+    key: row.id,
+    patch: {
+      taken_on: row.taken_on,
+      weight_lb: row.weight_lb,
+      waist_in: row.waist_in,
+      hip_in: row.hip_in,
+      arm_in: row.arm_in,
+      thigh_in: row.thigh_in,
+      notes: row.notes,
+    },
+    updated_at: now,
+  });
+  return row;
+}
+
+export async function saveDocumentary(
+  input: { id?: string; watched_on: IsoDate; title: string; notes?: string | null },
+): Promise<Documentary> {
+  const now = new Date().toISOString();
+  const row: Documentary = {
+    id: input.id ?? newId(),
+    user_id: currentUserId(),
+    watched_on: input.watched_on,
+    title: input.title,
+    notes: input.notes ?? null,
+    created_at: now,
+  };
+
+  await db.documentaries.put(row);
+  await enqueue({
+    table: 'documentaries',
+    key: row.id,
+    patch: { watched_on: row.watched_on, title: row.title, notes: row.notes },
+    updated_at: now,
+  });
+  return row;
 }

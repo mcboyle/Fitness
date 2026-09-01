@@ -19,7 +19,8 @@
     "icons": "node scripts/gen-icons.mjs",
     "check": "npm run lint && npm run typecheck && npm test && npm run smoke && scripts/killport.sh --orphans",
     "api": "npm run dev -w @lifestyle/api",
-    "twophone": "node scripts/twophone.mjs"
+    "twophone": "node scripts/twophone.mjs",
+    "phase3": "node scripts/phase3test.mjs"
   },
   "devDependencies": {
     "oxlint": "^1.79.0",

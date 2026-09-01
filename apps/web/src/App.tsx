@@ -6,6 +6,12 @@ import { onSync, startSyncLoop } from './api/sync';
 import { Login } from './components/Login';
 import { PartnerCard } from './components/PartnerCard';
 import { PauseBanner, type PauseRow } from './components/PauseBanner';
+import { BodyView } from './components/BodyView';
+import { CalendarView } from './components/CalendarView';
+import { DocumentaryCard } from './components/DocumentaryCard';
+import { PhotosView } from './components/PhotosView';
+import { TabBar, type View } from './components/TabBar';
+import { ROLLING_GOALS } from '@lifestyle/shared';
 import { DayCard } from './components/DayCard';
 import { DayHeader } from './components/DayHeader';
 import { RollingStrip } from './components/RollingStrip';
@@ -47,6 +53,7 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const [view, setView] = useState<View>('today');
   const [syncState, setSyncState] = useState<{ status: string; pending: number }>({
     status: 'idle',
     pending: 0,
@@ -98,7 +105,10 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
     [date],
   );
 
-  const partnerName = usePartnerName();
+  const partner = usePartner(session.user_id);
+  const partnerName = partner.name;
+  const allLogs = useAllLogs();
+  const myDocumentaries = documentaries.filter((d) => d.user_id === session.user_id);
   const partnerLogs = usePartnerLogs(session.user_id, date);
   const pauses = usePauses();
 
@@ -121,6 +131,32 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
         partnerName={partnerName}
       />
 
+      {view !== 'today' && (
+        <h1 className="font-display text-ink text-3xl font-black italic">
+          {view === 'calendar' ? 'CALENDAR' : view === 'photos' ? 'PHOTOS' : 'BODY'}
+        </h1>
+      )}
+
+      {view === 'calendar' && (
+        <CalendarView
+          myUserId={session.user_id}
+          myName={session.display_name}
+          partnerId={partner.id}
+          partnerName={partnerName}
+          logs={allLogs}
+          pauses={pauses}
+          settings={settings}
+        />
+      )}
+
+      {view === 'photos' && (
+        <PhotosView myUserId={session.user_id} partnerName={partnerName} />
+      )}
+
+      {view === 'body' && <BodyView myUserId={session.user_id} />}
+
+      {view === 'today' && (
+      <>
       <DayHeader
         date={date}
         today={today}
@@ -161,6 +197,11 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
       />
       <RollingStrip window={rolling} />
 
+      <DocumentaryCard
+        recent={myDocumentaries}
+        goal={ROLLING_GOALS.documentaries}
+      />
+
       {partnerLog && settings && (
         <PartnerCard
           name={partnerName}
@@ -170,6 +211,10 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
           onFocus={() => undefined}
         />
       )}
+      </>
+      )}
+
+      <TabBar view={view} onChange={setView} />
 
       <SyncFooter status={syncState.status} pending={syncState.pending} onSignOut={onSignOut} />
 
@@ -262,22 +307,46 @@ function SyncFooter({
  * `users` isn't a synced table — the only thing the UI needs from it is the
  * partner's name, so it comes from /me and is cached for the session.
  */
-function usePartnerName(): string {
+/**
+ * The partner's id comes from synced data, not from /me.
+ *
+ * `user_settings` carries a row per user and is pulled for both, so the id is
+ * available offline and stays correct however the two of you joined. A /me
+ * fetched once at mount goes stale the moment she claims her invite — which is
+ * exactly how the shared calendar ended up rendering one row instead of two.
+ *
+ * Only the display name needs the network, and "Partner" is a fine placeholder.
+ */
+function usePartner(myUserId: string): { id: string | null; name: string } {
   const [name, setName] = useState('Partner');
+
+  const id =
+    useLiveQuery(async () => {
+      const settings = await db.user_settings.toArray();
+      const other = settings.find((row) => row.user_id !== myUserId);
+      if (other) return other.user_id;
+      const members = await db.challenge_members.toArray();
+      return members.find((m) => m.user_id !== myUserId)?.user_id ?? null;
+    }, [myUserId]) ?? null;
 
   useEffect(() => {
     let cancelled = false;
-    api<{ partner: { display_name: string } | null }>('/me')
+    api<{ partner: { id: string; display_name: string } | null }>('/me')
       .then((me) => {
         if (!cancelled && me.partner?.display_name) setName(me.partner.display_name);
       })
       .catch(() => {
-        // Offline: "Partner" is a fine placeholder until the next pull.
+        // Offline: keep the placeholder until the next pull.
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [id]);
 
-  return name;
+  return { id, name };
+}
+
+/** Every stored log for both users — the shared calendar draws from this. */
+function useAllLogs() {
+  return useLiveQuery(() => db.daily_log.toArray(), []) ?? [];
 }

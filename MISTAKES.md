@@ -211,6 +211,55 @@ class of bug.
 
 ---
 
+## 9. A 500 on sync push looked like success
+
+**Symptom.** Adding a documentary and saving a measurement both appeared to
+work — the row rendered, the rolling strip counted it. Neither ever reached the
+server. The only trace was two `500`s in a browser console nobody was reading.
+
+**Cause.** `measurements` and `documentaries` have `created_at NOT NULL`, but
+the generic sync INSERT only writes `user_id`, the key column, the patch
+fields, `updated_at` and `server_seq`. Every insert violated the constraint and
+the whole push 500'd.
+
+**Why it was invisible.** Writes are local-first by design (§10): the row lands
+in IndexedDB and the op is queued. A failed push leaves the op queued to retry,
+which is correct — but it means a *permanently* failing op is indistinguishable
+from a slow network at a glance. The UI was honest and the data was still lost.
+
+**Fix.** `INSERT_DEFAULTS` in `apps/api/src/sync.ts` supplies server-managed
+columns per table.
+
+**Guard.** `scripts/phase3test.mjs` now asserts the footer reads **Synced** and
+re-queries `/sync` to confirm the rows exist server-side. A local row proves
+nothing; the outbox draining is the proof.
+
+**Rule.** In a local-first app, "it appeared in the UI" is not evidence a write
+succeeded. Assert the queue drains, and assert the server has the row.
+
+---
+
+## 10. The shared calendar rendered one row instead of two
+
+**Symptom.** "Both streaks, one grid" showed only my own row — 35 cells where
+there should have been 70.
+
+**Cause.** Two compounding mistakes. The partner's row was derived from which
+users appear in `daily_log`, so she had no row until she happened to log
+something. And the partner id came from a `/me` fetched once at mount, which is
+stale the moment she claims her invite.
+
+**Fix.** The partner id is derived from `user_settings`, which carries a row per
+user and is pulled for both — so it is correct offline and however the two of
+you joined. Her row renders empty rather than being absent. Only the display
+name still needs the network.
+
+**Rule.** Don't derive identity from activity. Someone who has done nothing yet
+still exists, and a feature about *both* people must not disappear when one of
+them is idle.
+
+---
+
 ## Toolchain snags
 
 Low-value individually; recorded so they aren't rediscovered.

@@ -104,6 +104,12 @@ gate the today/yesterday edit window passes. Phase 2 must re-enforce the same
 rule server-side and return the server's date — a client-side-only rule makes
 the streak decoration (§6).
 
+**A local row is not a synced row.** Writes land in IndexedDB and queue an op;
+a failing push retries forever and looks identical to a slow network. When
+verifying anything that writes, assert the sync footer reads "Synced" and
+re-query the API — two tables silently failed to sync for exactly this reason
+(MISTAKES.md #9).
+
 **Each user writes only their own rows.** That is what removes the entire class
 of concurrent-edit conflicts and lets last-write-wins be correct (§10). The
 server enforces it; don't add a path that writes the partner's rows.

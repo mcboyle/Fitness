@@ -25,6 +25,17 @@ const WRITABLE: Record<string, string[]> = {
   documentaries: ['watched_on', 'title', 'notes'],
 };
 
+/**
+ * Columns the server fills on insert that a client never sends. Without these
+ * an INSERT violates NOT NULL and the whole push 500s — and because writes are
+ * local-first, the UI shows success while the op retries in the outbox
+ * forever. See MISTAKES.md #9.
+ */
+const INSERT_DEFAULTS: Record<string, () => Record<string, unknown>> = {
+  measurements: () => ({ created_at: new Date().toISOString() }),
+  documentaries: () => ({ created_at: new Date().toISOString() }),
+};
+
 const KEY_COLUMN: Record<string, string> = {
   daily_log: 'date',
   user_settings: 'user_id',
@@ -147,8 +158,15 @@ export function applyOps(db: DB, userId: string, ops: SyncOp[]): SyncRejection[]
           }`,
         ).run(...values, updatedAt, seq, ...(op.table === 'daily_log' ? [userId, keyValue] : [keyValue]));
       } else {
-        const columns = ['user_id', keyColumn, ...Object.keys(merged), 'updated_at', 'server_seq'];
-        const values = [userId, keyValue, ...Object.values(merged).map(toSqlValue), updatedAt, seq];
+        const defaults = INSERT_DEFAULTS[op.table]?.() ?? {};
+        const columns = [
+          'user_id', keyColumn, ...Object.keys(merged), ...Object.keys(defaults),
+          'updated_at', 'server_seq',
+        ];
+        const values = [
+          userId, keyValue, ...Object.values(merged).map(toSqlValue),
+          ...Object.values(defaults).map(toSqlValue), updatedAt, seq,
+        ];
         const unique = columns.filter((c, i) => columns.indexOf(c) === i);
         const uniqueValues = unique.map((c) => values[columns.indexOf(c)]);
         db.prepare(
