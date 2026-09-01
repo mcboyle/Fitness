@@ -83,8 +83,8 @@ export function SettingsSheet({
             Completion
           </CardLabel>
           <p className="text-faint mb-3 text-xs">
-            A day counts as complete at this many of the six scored items. A
-            missed day resets the streak to zero.
+            A day counts as complete at this many of the nine rings. At nine,
+            every ring must be closed. A missed day resets the streak to zero.
           </p>
           <div className="flex flex-wrap gap-2">
             {Array.from({ length: SCORED_ITEMS.length }, (_, i) => i + 1).map((n) => (
@@ -102,10 +102,7 @@ export function SettingsSheet({
               <li key={item}>{SCORED_LABELS[item]}</li>
             ))}
           </ul>
-          <p className="text-faint mt-2 text-xs">
-            Workout, whole food, no alcohol and no junk food are tracked and
-            charted but don't gate the streak.
-          </p>
+
         </Card>
 
         <Card>

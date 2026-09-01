@@ -31,14 +31,19 @@ function log(date: string, patch: Partial<DailyLog> = {}): DailyLog {
   return { ...base, ...patch };
 }
 
-/** Six of the nine scored items — the default threshold. */
+/** All nine — the default threshold requires every ring. */
 const complete = {
+  steps: 12_000,
   water_oz: 80,
   pages_read: 20,
+  workout_minutes: 45,
   self_care: true,
   journaled: true,
-  workout_minutes: 45,
   sleep_minutes: 480,
+  no_alcohol: true,
+  breakfast: 'healthy',
+  lunch: 'healthy',
+  dinner: 'healthy',
 } satisfies Partial<DailyLog>;
 
 /** Every tracked item scores now. */
@@ -59,8 +64,18 @@ describe('scoring', () => {
 
   it('scores workout, which the spec left unscored', () => {
     const rested = log('2026-09-01', { ...complete, workout_minutes: 0 });
-    expect(scoreCount(rested, settings)).toBe(5);
-    expect(scoreCount(log('2026-09-01', complete), settings)).toBe(6);
+    expect(scoreCount(rested, settings)).toBe(8);
+    expect(scoreCount(log('2026-09-01', complete), settings)).toBe(9);
+  });
+
+  it('a single unclosed ring is not a complete day', () => {
+    for (const missing of [
+      { water_oz: 0 }, { journaled: false }, { no_alcohol: false }, { dinner: null },
+    ] as Partial<DailyLog>[]) {
+      const day = log('2026-09-01', { ...complete, ...missing });
+      expect(scoreCount(day, settings)).toBe(8);
+      expect(isDayComplete(day, settings)).toBe(false);
+    }
   });
 
   it('scores eating only when all three meals are logged and healthy', () => {
@@ -84,16 +99,10 @@ describe('scoring', () => {
     ).toBe(2);
   });
 
-  it('completes at the threshold, not at all nine', () => {
+  it('completes only when every ring is closed', () => {
     const day = log('2026-09-01', complete);
-    expect(scoreCount(day, settings)).toBe(6);
+    expect(scoreCount(day, settings)).toBe(9);
     expect(isDayComplete(day, settings)).toBe(true);
-  });
-
-  it('is incomplete one item under the threshold', () => {
-    const day = log('2026-09-01', { ...complete, journaled: false });
-    expect(scoreCount(day, settings)).toBe(5);
-    expect(isDayComplete(day, settings)).toBe(false);
   });
 
   it('fills the steps ring in thirds from buckets, proportionally from exact', () => {

@@ -12,10 +12,17 @@ export const DEFAULT_SETTINGS: Omit<UserSettings, 'user_id' | 'updated_at'> = {
   goal_steps: 10_000,
   goal_workout_minutes: 45,
   goal_sleep_minutes: 480,
-  // Every one of the nine items scores now, so the old 4 (of six) would be a
-  // much looser day. Two thirds keeps roughly the strictness that was chosen,
-  // and it stays one tap to change in settings.
-  completion_threshold: 6,
+  /*
+   * All nine. A partial threshold meant a day read as complete with rings still
+   * empty — close six of nine and the streak counted, undo one of nine and it
+   * kept counting, which is not what "complete the day" means to anyone
+   * looking at the rings.
+   *
+   * This is strict: one missed item breaks the streak, and §6 warned that the
+   * threshold is what absorbs a distracted evening. Still one tap to lower in
+   * settings.
+   */
+  completion_threshold: 9,
   step_entry_mode: 'both',
   theme: 'dark',
   ring_layout: 'concentric',

@@ -157,7 +157,11 @@ function StateBadge({
     complete: { text: 'complete', className: 'text-ok' },
     missed: { text: 'missed', className: 'text-workout' },
     paused: { text: 'paused', className: 'text-paused' },
-    'in-progress': { text: `needs ${threshold}`, className: 'text-faint' },
+    'in-progress': {
+      text:
+        threshold >= SCORED_ITEMS.length ? 'needs all nine' : `needs ${threshold}`,
+      className: 'text-faint',
+    },
     future: { text: 'upcoming', className: 'text-faint' },
   };
   const { text, className } = copy[state];
