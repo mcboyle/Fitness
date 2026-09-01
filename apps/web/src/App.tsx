@@ -185,7 +185,20 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
       : undefined);
 
   return (
-    <div className="mx-auto flex min-h-full max-w-md flex-col gap-4 p-4 pb-10">
+    <div
+      className="mx-auto flex min-h-full max-w-md flex-col gap-4 p-4"
+      style={{
+        /*
+         * Installed on iOS the web view draws under the status bar and the home
+         * indicator, because apple-mobile-web-app-status-bar-style is
+         * black-translucent. Without this the day header sits behind the clock
+         * and the settings gear behind the battery.
+         */
+        paddingTop: 'max(1rem, env(safe-area-inset-top))',
+        paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+        paddingRight: 'max(1rem, env(safe-area-inset-right))',
+      }}
+    >
       <PauseBanner
         pauses={pauses}
         myUserId={session.user_id}
@@ -302,7 +315,7 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
 
       <Confetti fire={celebrating} onDone={() => setCelebrating(false)} />
 
-      <SyncFooter status={syncState.status} pending={syncState.pending} onSignOut={onSignOut} />
+      <SyncFooter status={syncState.status} pending={syncState.pending} />
 
       {settingsOpen && (
         <SettingsSheet
@@ -310,6 +323,10 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
           challenge={challenge}
           onChange={(patch) => void updateSettings(patch)}
           onClose={() => setSettingsOpen(false)}
+          onSignOut={() => {
+            clearSession();
+            onSignOut();
+          }}
         />
       )}
 
@@ -350,15 +367,7 @@ function usePauses(): PauseRow[] {
   return (useLiveQuery(() => db.pauses.toArray(), []) ?? []) as unknown as PauseRow[];
 }
 
-function SyncFooter({
-  status,
-  pending,
-  onSignOut,
-}: {
-  status: string;
-  pending: number;
-  onSignOut: () => void;
-}) {
+function SyncFooter({ status, pending }: { status: string; pending: number }) {
   const label =
     status === 'offline'
       ? pending > 0
@@ -373,19 +382,7 @@ function SyncFooter({
             : 'Synced';
 
   return (
-    <footer className="text-faint flex items-center gap-3 px-1 pt-2 text-xs">
-      <span>{label}</span>
-      <button
-        type="button"
-        onClick={() => {
-          clearSession();
-          onSignOut();
-        }}
-        className="ml-auto font-semibold"
-      >
-        Sign out
-      </button>
-    </footer>
+    <footer className="text-faint px-1 pt-2 text-xs">{label}</footer>
   );
 }
 

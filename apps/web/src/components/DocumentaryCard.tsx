@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { formatDayLabel, today, type Documentary } from '@lifestyle/shared';
-import { saveDocumentary } from '../db/repo';
+import { deleteDocumentary, saveDocumentary } from '../db/repo';
 import { BigButton, Card, CardLabel } from './ui';
 
 /**
@@ -48,6 +48,16 @@ export function DocumentaryCard({
               <span className="text-faint ml-auto shrink-0 text-xs">
                 {formatDayLabel(row.watched_on)}
               </span>
+              {row.user_id === myUserId && (
+                <button
+                  type="button"
+                  onClick={() => void deleteDocumentary(row.id)}
+                  aria-label={`Delete ${row.title}`}
+                  className="text-faint shrink-0 px-1 text-sm leading-none"
+                >
+                  ×
+                </button>
+              )}
             </li>
           ))}
         </ul>

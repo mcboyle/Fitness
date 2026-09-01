@@ -33,7 +33,7 @@ export function rollingWindow(
   return {
     dates,
     workouts: logs.filter((l) => inWindow(l.date) && l.workout_minutes > 0).length,
-    documentaries: documentaries.filter((d) => inWindow(d.watched_on)).length,
+    documentaries: documentaries.filter((d) => !d.deleted_at && inWindow(d.watched_on)).length,
     photos: media.filter((m) => inWindow(m.taken_on)).length,
   };
 }

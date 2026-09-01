@@ -2,15 +2,10 @@ import { MEALS, type DailyLog, type MealState, type UserSettings } from './types
 import { addDays, type IsoDate } from './time';
 
 /**
- * Six items score toward daily completion.
- *
- * Changed from §4 on request after a week of use: sleep left the scored set and
- * workout joined it. The spec deliberately left workout unscored so a rest day
- * never reads as failure, its goal being 4-in-7 — so a rest day now costs one
- * of six. The threshold is what absorbs that, and it is user-editable.
- *
- * Sleep, Eating Healthy and no-alcohol are tracked, charted, given rings and
- * visible to everyone — they just don't gate the streak.
+ * Every tracked item scores. §4 scored six of ten and left workout unscored so
+ * a rest day never read as failure; that is fully reversed on request — all
+ * nine now gate the streak, and the user-editable threshold is the only thing
+ * absorbing a rest day or a skipped meal.
  */
 export const SCORED_ITEMS = [
   'steps',
@@ -19,6 +14,9 @@ export const SCORED_ITEMS = [
   'workout',
   'self_care',
   'journaled',
+  'sleep',
+  'eating',
+  'no_alcohol',
 ] as const;
 
 export type ScoredItem = (typeof SCORED_ITEMS)[number];
@@ -30,6 +28,9 @@ export const SCORED_LABELS: Record<ScoredItem, string> = {
   workout: 'Workout',
   self_care: 'Self-Care',
   journaled: 'Daily Journal',
+  sleep: 'Sleep',
+  eating: 'Eating Healthy',
+  no_alcohol: 'No Alcohol',
 };
 
 /** Buckets fill the steps ring in thirds when no exact count was given. */
@@ -95,6 +96,10 @@ export function scoredStatus(
     workout: log.workout_minutes >= settings.goal_workout_minutes,
     self_care: log.self_care,
     journaled: log.journaled,
+    sleep: (log.sleep_minutes ?? 0) >= settings.goal_sleep_minutes,
+    // All three meals logged and none of them off.
+    eating: eatingProgress(log) >= 1 && healthyMeals(log) === MEALS.length,
+    no_alcohol: log.no_alcohol,
   };
 }
 

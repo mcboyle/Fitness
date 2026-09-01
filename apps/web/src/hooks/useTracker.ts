@@ -77,7 +77,9 @@ export function useStreak(settings: UserSettings | undefined, now: IsoDate): num
 export function useDocumentaries(from: IsoDate, to: IsoDate) {
   return (
     useLiveQuery(
-      () => db.documentaries.where('watched_on').between(from, to, true, true).toArray(),
+      async () =>
+        (await db.documentaries.where('watched_on').between(from, to, true, true).toArray())
+          .filter((row) => !row.deleted_at),
       [from, to],
     ) ?? []
   );

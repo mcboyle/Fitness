@@ -132,6 +132,8 @@ export interface Documentary {
   title: string;
   notes: string | null;
   created_at: string;
+  /** Tombstone: a hard delete would never reach the other device. */
+  deleted_at?: string | null;
 }
 
 export interface Reaction {

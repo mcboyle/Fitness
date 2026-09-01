@@ -4,6 +4,7 @@ import { SCORED_ITEMS, dayState, scoreCount } from '@lifestyle/shared';
 import {
   addDays,
   dayNumber,
+  formatDayLabel,
   formatRelativeDay,
   isEditable,
   type IsoDate,
@@ -45,15 +46,13 @@ export function DayHeader({
           onClick={() => onDateChange(addDays(date, -1))}
         />
         <div className="min-w-0 flex-1 text-center">
-          <div className="font-display text-ink text-4xl leading-none font-black tracking-tight italic">
-            {day && day >= 1 ? `DAY ${day}` : formatRelativeDay(date, today)}
+          {/* The date is what orients you; the challenge day number is trivia. */}
+          <div className="font-display text-ink text-3xl leading-none font-black tracking-tight italic">
+            {formatDayLabel(date).toUpperCase()}
           </div>
           <div className="text-faint mt-1 flex items-center justify-center gap-2 text-xs">
-            <span>
-              {day && day >= 1
-                ? formatRelativeDay(date, today)
-                : 'before this challenge'}
-            </span>
+            <span>{formatRelativeDay(date, today)}</span>
+            {day && day >= 1 && <span>· day {day}</span>}
             {log?.logged_late && (
               <span
                 title="Filled in after the day it describes"

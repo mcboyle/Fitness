@@ -12,10 +12,10 @@ export const DEFAULT_SETTINGS: Omit<UserSettings, 'user_id' | 'updated_at'> = {
   goal_steps: 10_000,
   goal_workout_minutes: 45,
   goal_sleep_minutes: 480,
-  // BUILDSPEC §4 specifies 3. Raised to 4 after device testing — three of six
-  // is half the list, and with no reminders the streak was too forgiving to
-  // mean much. Still one integer, editable per user in settings.
-  completion_threshold: 4,
+  // Every one of the nine items scores now, so the old 4 (of six) would be a
+  // much looser day. Two thirds keeps roughly the strictness that was chosen,
+  // and it stays one tap to change in settings.
+  completion_threshold: 6,
   step_entry_mode: 'both',
   theme: 'dark',
   ring_layout: 'concentric',

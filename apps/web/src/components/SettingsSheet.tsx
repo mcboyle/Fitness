@@ -11,6 +11,7 @@ interface SettingsSheetProps {
   challenge: Challenge | undefined;
   onChange: (patch: Partial<UserSettings>) => void;
   onClose: () => void;
+  onSignOut: () => void;
 }
 
 export function SettingsSheet({
@@ -18,10 +19,23 @@ export function SettingsSheet({
   challenge,
   onChange,
   onClose,
+  onSignOut,
 }: SettingsSheetProps) {
   return (
-    <div className="bg-surface fixed inset-0 z-10 overflow-y-auto">
-      <div className="mx-auto grid max-w-md gap-3 p-4 pb-16">
+    <div className="bg-surface fixed inset-0 z-20 overflow-y-auto overscroll-contain">
+      <div
+        className="mx-auto grid max-w-md gap-3 p-4"
+        style={{
+          /*
+           * apple-mobile-web-app-status-bar-style is black-translucent, so an
+           * installed app draws under the status bar and the home indicator.
+           * Without these insets the sheet's title sits behind the clock and
+           * the last card is unreachable.
+           */
+          paddingTop: 'max(1rem, env(safe-area-inset-top))',
+          paddingBottom: 'max(4rem, calc(env(safe-area-inset-bottom) + 4rem))',
+        }}
+      >
         <header className="flex items-center gap-3 py-2">
           <h1 className="font-display text-ink text-3xl font-black italic">
             SETTINGS
@@ -169,6 +183,21 @@ export function SettingsSheet({
         </Card>
 
         <SignInCode />
+
+        <Card>
+          <CardLabel>Account</CardLabel>
+          <p className="text-faint mb-3 text-xs">
+            Signing out clears this device. Your data stays on the server — sign
+            back in with the code above to get it all back.
+          </p>
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="text-workout text-sm font-bold"
+          >
+            Sign out
+          </button>
+        </Card>
       </div>
     </div>
   );

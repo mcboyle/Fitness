@@ -65,6 +65,18 @@ const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 3,
+    name: 'soft-delete for documentaries',
+    up: (db) => {
+      /*
+       * A tombstone, not a DELETE. Deleting the row outright removes it from
+       * the server but nothing tells the other device, which keeps its copy and
+       * keeps counting it toward the rolling goal forever.
+       */
+      db.exec('ALTER TABLE documentaries ADD COLUMN deleted_at TEXT');
+    },
+  },
 ];
 
 export function migrate(db: DB, log: (message: string) => void = () => {}): number {

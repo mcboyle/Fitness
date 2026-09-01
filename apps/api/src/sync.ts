@@ -23,7 +23,7 @@ const WRITABLE: Record<string, string[]> = {
   measurements: [
     'taken_on', 'weight_lb', 'waist_in', 'hip_in', 'arm_in', 'thigh_in', 'notes',
   ],
-  documentaries: ['watched_on', 'title', 'notes'],
+  documentaries: ['watched_on', 'title', 'notes', 'deleted_at'],
 };
 
 /**

@@ -31,42 +31,45 @@ function log(date: string, patch: Partial<DailyLog> = {}): DailyLog {
   return { ...base, ...patch };
 }
 
-/** Four of the six scored items — the default threshold. */
+/** Six of the nine scored items — the default threshold. */
 const complete = {
   water_oz: 80,
   pages_read: 20,
   self_care: true,
   journaled: true,
+  workout_minutes: 45,
+  sleep_minutes: 480,
 } satisfies Partial<DailyLog>;
 
-/** Sleep left the scored set and workout joined it. */
-const SCORES_NOW = ['steps', 'water', 'reading', 'workout', 'self_care', 'journaled'];
+/** Every tracked item scores now. */
+const SCORES_NOW = [
+  'steps', 'water', 'reading', 'workout', 'self_care',
+  'journaled', 'sleep', 'eating', 'no_alcohol',
+];
 
 function history(entries: DailyLog[]) {
   return new Map(entries.map((e) => [e.date, e]));
 }
 
 describe('scoring', () => {
-  it('counts only the six scored items', () => {
+  it('scores every tracked item', () => {
     expect([...SCORED_ITEMS]).toEqual(SCORES_NOW);
-
-    // Every unscored item set, nothing scored: still zero.
-    const unscored = log('2026-09-01', {
-      sleep_minutes: 480,
-      no_alcohol: true,
-      breakfast: 'healthy',
-      lunch: 'healthy',
-      dinner: 'healthy',
-    });
-    expect(scoreCount(unscored, settings)).toBe(0);
-    expect(isDayComplete(unscored, settings)).toBe(false);
+    expect(scoreCount(log('2026-09-01'), settings)).toBe(0);
   });
 
   it('scores workout, which the spec left unscored', () => {
     const rested = log('2026-09-01', { ...complete, workout_minutes: 0 });
-    const trained = log('2026-09-01', { ...complete, workout_minutes: 45 });
-    expect(scoreCount(rested, settings)).toBe(4);
-    expect(scoreCount(trained, settings)).toBe(5);
+    expect(scoreCount(rested, settings)).toBe(5);
+    expect(scoreCount(log('2026-09-01', complete), settings)).toBe(6);
+  });
+
+  it('scores eating only when all three meals are logged and healthy', () => {
+    const twoGood = log('2026-09-01', { breakfast: 'healthy', lunch: 'healthy' });
+    const oneBad = log('2026-09-01', { breakfast: 'healthy', lunch: 'unhealthy', dinner: 'healthy' });
+    const allGood = log('2026-09-01', { breakfast: 'healthy', lunch: 'healthy', dinner: 'healthy' });
+    expect(scoreCount(twoGood, settings)).toBe(0);
+    expect(scoreCount(oneBad, settings)).toBe(0);
+    expect(scoreCount(allGood, settings)).toBe(1);
   });
 
   it('distinguishes an unlogged meal from an unhealthy one', () => {
@@ -81,15 +84,15 @@ describe('scoring', () => {
     ).toBe(2);
   });
 
-  it('completes at the threshold, not at all six', () => {
+  it('completes at the threshold, not at all nine', () => {
     const day = log('2026-09-01', complete);
-    expect(scoreCount(day, settings)).toBe(4);
+    expect(scoreCount(day, settings)).toBe(6);
     expect(isDayComplete(day, settings)).toBe(true);
   });
 
   it('is incomplete one item under the threshold', () => {
-    const day = log('2026-09-01', { water_oz: 80, pages_read: 20, self_care: true });
-    expect(scoreCount(day, settings)).toBe(3);
+    const day = log('2026-09-01', { ...complete, journaled: false });
+    expect(scoreCount(day, settings)).toBe(5);
     expect(isDayComplete(day, settings)).toBe(false);
   });
 
@@ -135,7 +138,7 @@ describe('streaks', () => {
   it('resets on a logged-but-incomplete day', () => {
     const days = history([
       log('2026-09-08', complete),
-      log('2026-09-09', { water_oz: 80 }), // 1 of 6, under the threshold
+      log('2026-09-09', { water_oz: 80 }), // 1 of 9, under the threshold
       log(now, complete),
     ]);
     expect(computeStreak(days, settings, now)).toBe(1);

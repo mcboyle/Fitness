@@ -228,6 +228,22 @@ export async function saveMeasurement(
   return row;
 }
 
+/**
+ * Deleting is a real delete, not a tombstone: documentaries feed a rolling
+ * count, so a row that lingers keeps inflating a goal that was not met.
+ */
+export async function deleteDocumentary(id: string): Promise<void> {
+  const deleted_at = new Date().toISOString();
+  const existing = await db.documentaries.get(id);
+  if (existing) await db.documentaries.put({ ...existing, deleted_at });
+  await enqueue({
+    table: 'documentaries',
+    key: id,
+    patch: { deleted_at },
+    updated_at: deleted_at,
+  });
+}
+
 export async function saveDocumentary(
   input: { id?: string; watched_on: IsoDate; title: string; notes?: string | null },
 ): Promise<Documentary> {

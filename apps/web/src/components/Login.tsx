@@ -72,7 +72,10 @@ export function Login({ onSignedIn }: { onSignedIn: () => void }) {
   };
 
   return (
-    <div className="mx-auto flex min-h-full max-w-md flex-col justify-center gap-5 p-6">
+    <div
+      className="mx-auto flex min-h-full max-w-md flex-col justify-center gap-5 p-6"
+      style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top))' }}
+    >
       <div>
         <h1 className="font-display text-ink text-3xl leading-tight font-black break-words italic">
           Winter_Fitness_Tracker
