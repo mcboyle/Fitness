@@ -16,19 +16,43 @@ import { chromium } from 'playwright';
 const PORT = 4178;
 const URL = `http://localhost:${PORT}`;
 
+// `detached` puts vite in its own process group. Killing the npx wrapper alone
+// orphans the vite child, which then keeps serving the build to the whole LAN
+// — that happened four times before anyone noticed. See MISTAKES.md #6.
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT)], {
   stdio: ['ignore', 'pipe', 'pipe'],
+  detached: true,
 });
 
 const failures = [];
 let browser;
 
-/** Owns the child, so it kills by PID — never by process-name pattern. */
-function shutdown(code) {
-  browser?.close().catch(() => {});
-  server.kill('SIGTERM');
+let shuttingDown = false;
+
+/**
+ * Kills the whole process group (note the negated pid), never a name pattern.
+ * Killing `server.pid` alone leaves the vite child listening forever.
+ */
+function stopServer() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  try {
+    process.kill(-server.pid, 'SIGTERM');
+  } catch {
+    // already gone
+  }
+}
+
+async function shutdown(code) {
+  await browser?.close().catch(() => {});
+  stopServer();
   process.exit(code);
 }
+
+// Fires on ctrl-c and on an unhandled throw, not just the happy path.
+process.on('SIGINT', () => shutdown(130));
+process.on('SIGTERM', () => shutdown(143));
+process.on('exit', stopServer);
 
 try {
   await waitForServer();
@@ -72,11 +96,11 @@ try {
 if (failures.length) {
   console.error(`smoke FAILED (${failures.length})`);
   for (const f of failures) console.error(`  - ${f}`);
-  shutdown(1);
+  await shutdown(1);
 }
 
 console.log('smoke passed');
-shutdown(0);
+await shutdown(0);
 
 async function waitForServer() {
   for (let i = 0; i < 60; i += 1) {

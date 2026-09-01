@@ -54,8 +54,14 @@ npm run icons    # regenerate PWA icons from the palette
 already. **Run `npm run check`, and look at `npm run shots` for anything
 visual.**
 
-Never use `pkill -f` / `pgrep -f` on a pattern that appears in your own command
-line — it kills the shell running it. Use `scripts/killport.sh <port>`.
+Two process rules, both learned by breaking them (MISTAKES.md #1, #6):
+
+- Never `pkill -f` / `pgrep -f` on a pattern that appears in your own command
+  line — it kills the shell running it. Use `scripts/killport.sh <port>`.
+- If you spawn a server, own its process group and kill the **group**. Killing
+  a wrapper does not kill what the wrapper spawned; that leaked four
+  LAN-exposed servers before anyone looked. `npm run check` ends with
+  `scripts/killport.sh --orphans` to catch it.
 
 ## Ground rules
 

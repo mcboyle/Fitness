@@ -99,6 +99,39 @@ is worse than no check — it converts "untested" into "verified".
 
 ---
 
+## 6. The smoke harness leaked a LAN-exposed server on every run
+
+**Symptom.** An unrelated survey of the VM found four `vite preview` processes
+on :4179–:4182, bound to `*`, serving the built app to all of `10.0.70.0/24`.
+Nobody started them on purpose and nothing reported them. They had been up for
+up to eight minutes each.
+
+**Cause.** `scripts/smoke.mjs` spawned `npx vite preview` and, on exit, called
+`server.kill()`. That kills the **`npx` wrapper**, not the `vite` child it
+spawned, so every smoke run orphaned a listener. Vite then auto-incremented the
+port on the next run, which is why they stacked up instead of colliding.
+
+This is the third process-management failure, after `pkill -f` twice in entry
+#1. Same family: acting on the wrong process.
+
+**Fix.** Spawn with `detached: true` so vite gets its own process group, then
+kill the **group** (`process.kill(-pid)`). Shutdown is also wired to `SIGINT`,
+`SIGTERM` and `exit`, so it runs on a throw and on ctrl-c, not just the happy
+path.
+
+**Guard — `scripts/killport.sh --orphans`,** now the last step of `npm run
+check`. It asserts that none of this project's tooling ports are still held and
+prints the offending pid if they are. `killport.sh <port>` also kills by process
+**group** now, so a leaked wrapper takes its children with it.
+
+Verified by planting a leak: `npx vite preview --port 4179`, then `--orphans`
+exited 1 and named the pid.
+
+**Rule.** If you spawn a server, own its process group and kill the group. Never
+trust that killing what you spawned killed what it spawned.
+
+---
+
 ## Toolchain snags
 
 Low-value individually; recorded so they aren't rediscovered.
