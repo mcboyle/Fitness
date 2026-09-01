@@ -19,7 +19,9 @@ export default defineConfig({
       includeAssets: ['apple-touch-icon.png', 'favicon-32.png', 'fonts/*.woff2'],
       manifest: {
         name: 'Winter_Fitness_Tracker',
-        short_name: 'Winter_Fitness_Tracker',
+        // iOS truncates the home-screen label at ~12 characters; the full
+        // name above still shows in the install prompt.
+        short_name: 'Winter',
         description: 'A shared daily-habit tracker for two.',
         start_url: '/',
         scope: '/',
