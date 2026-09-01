@@ -1,0 +1,63 @@
+/*
+ * Every colour in this app lives here, scoped under [data-theme].
+ * Ground rule from the build spec §11: zero hardcoded hex in the component
+ * tree. Retrofitting a second theme onto hardcoded colours is a full styling
+ * pass, so both themes ship from the first commit.
+ */
+
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --surface: #12070c;
+  --surface-raised: #1d0f16;
+  --surface-sunken: #0b0408;
+  --border: #33202a;
+  --border-strong: #4a2c3a;
+
+  --text: #ffeef4;
+  --text-muted: #c9a3b4;
+  --text-faint: #8d6a79;
+
+  --ring-water: #6ec5ff;
+  --ring-reading: #c77dff;
+  --ring-steps: #ff7aa8;
+  --ring-workout: #ff2d78;
+  --ring-track: #2a1620;
+
+  --accent: #ff2d78;
+  --accent-contrast: #ffffff;
+  --accent-soft: #3a1020;
+
+  --ok: #6ee7a8;
+  --warn: #ffc46e;
+  --paused: #6b5460;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  --surface: #fff3f7;
+  --surface-raised: #ffffff;
+  --surface-sunken: #ffe6ef;
+  --border: #f3cddc;
+  --border-strong: #e7aac2;
+
+  --text: #3a0e22;
+  --text-muted: #7c4a5e;
+  --text-faint: #a9788a;
+
+  --ring-water: #2fa3e8;
+  --ring-reading: #a855f7;
+  --ring-steps: #f2699a;
+  --ring-workout: #e01b60;
+  --ring-track: #fbdde8;
+
+  --accent: #e01b60;
+  --accent-contrast: #ffffff;
+  --accent-soft: #ffdfeb;
+
+  --ok: #12996a;
+  --warn: #b3690a;
+  --paused: #c4a8b4;
+}
