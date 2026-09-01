@@ -1,7 +1,7 @@
 import fastifyMultipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APP_TIMEZONE, today } from '@lifestyle/shared';
@@ -21,6 +21,26 @@ export function buildServer(db: DB = openDatabase()) {
 
   // Progress photos upload as multipart; nothing else in the API uses it.
   app.register(fastifyMultipart, { attachFieldsToBody: false });
+
+  /**
+   * The build currently on disk, taken from the hashed asset name in
+   * index.html. That is the one value that changes on every deploy and is
+   * knowable by both sides: a client can read the same name out of the document
+   * it was loaded from, and a stale service worker will report the old one.
+   *
+   * Read per request rather than cached, so a deploy takes effect without a
+   * restart. It is one small file read.
+   */
+  const currentBuild = (): string | null => {
+    try {
+      const html = readFileSync(resolve(WEB_DIST, 'index.html'), 'utf8');
+      return /assets\/(index-[A-Za-z0-9_-]+\.js)/.exec(html)?.[1] ?? null;
+    } catch {
+      return null; // dev: Vite serves the app, there is no dist to read
+    }
+  };
+
+  app.get('/api/v1/version', async () => ({ build: currentBuild() }));
 
   app.get('/api/v1/health', async () => ({
     ok: true,

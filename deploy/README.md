@@ -46,6 +46,24 @@ After a deploy, check at the edge, not the origin:
 curl -sI https://fitness.themfboyles.org/sw.js | grep -i 'cache-control\|cf-cache'
 ```
 
+## Forcing clients onto a new build
+
+There are no push notifications, so a device holding an old service worker
+cannot be told to update — it has to notice. Both sides can see the same fact:
+the hashed name of the main bundle.
+
+- `GET /api/v1/version` reports what is actually in `dist/`, read per request so
+  a deploy takes effect without a restart.
+- The client reads the same name out of the document it was served, on load and
+  on every foreground. On a mismatch it deletes every cache, unregisters every
+  service worker and reloads.
+- Guarded to once per tab. If a reload doesn't resolve it, looping forever is
+  worse than running an old build, so it shows a banner instead.
+
+**This only helps clients running a build that contains the check.** A device on
+an older bundle cannot run code it does not have; it needs one successful
+service-worker update first, which the cache headers above are what allow.
+
 ## Firewall
 
 `ufw` is active with `INPUT DROP` and port 22 alone allowed. The tunnel is

@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { api } from './api/client';
 import { clearSession, getSession } from './api/session';
 import { onSync, startSyncLoop } from './api/sync';
+import { checkVersion } from './api/version';
 import { Login } from './components/Login';
 import { PartnerCard } from './components/PartnerCard';
 import { PauseBanner, type PauseRow } from './components/PauseBanner';
@@ -44,11 +45,52 @@ import {
 
 export default function App() {
   const [session, setSessionState] = useState(getSession);
+  const [stale, setStale] = useState(false);
+
+  /*
+   * Checked before anything else and on every foreground: a client running an
+   * old bundle can be wrong about the API in ways that look like data bugs —
+   * which is exactly how a spent invite code got blamed on the sign-in feature.
+   */
+  useEffect(() => {
+    const check = () => {
+      void checkVersion().then((state) => setStale(state === 'stale'));
+    };
+    check();
+    window.addEventListener('focus', check);
+    return () => window.removeEventListener('focus', check);
+  }, []);
+
+  const banner = stale ? <StaleBanner /> : null;
 
   // The app is useless without an identity: rows are keyed by user, and the
   // edit window and streak are the server's to enforce.
-  if (!session) return <Login onSignedIn={() => setSessionState(getSession())} />;
-  return <Tracker onSignOut={() => setSessionState(null)} />;
+  if (!session) {
+    return (
+      <>
+        {banner}
+        <Login onSignedIn={() => setSessionState(getSession())} />
+      </>
+    );
+  }
+  return (
+    <>
+      {banner}
+      <Tracker onSignOut={() => setSessionState(null)} />
+    </>
+  );
+}
+
+/**
+ * Only shown when the automatic update could not fix it, so the instruction has
+ * to be something a phone can actually do.
+ */
+function StaleBanner() {
+  return (
+    <div className="bg-accent text-accent-contrast sticky top-0 z-30 px-4 py-2 text-center text-xs font-semibold">
+      This app is out of date. Fully close it and open it again to update.
+    </div>
+  );
 }
 
 function Tracker({ onSignOut }: { onSignOut: () => void }) {
