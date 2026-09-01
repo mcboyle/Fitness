@@ -42,6 +42,21 @@ To try it on a phone during Phase 1, hit the dev server's Network URL from
 Safari. A real home-screen install needs a trusted HTTPS origin, so it waits on
 the Cloudflare Tunnel from §12 of the spec — that lands with Phase 2.
 
+## Progress photos
+
+Stored at `data/media/<user_id>/<uuid>.<ext>` — outside anything Fastify serves
+statically, with random names, so no path is guessable. Bytes are reachable
+only through a short-lived HMAC-signed URL that names the viewer, and
+visibility is re-checked when the file is served, not when the URL is signed.
+That is what makes unsharing bite: a signed URL still inside its five-minute
+window stops working the moment a photo goes private.
+
+**Uploads keep the original file untouched.** That is a deliberate choice, and
+it means EXIF metadata — including GPS coordinates, capture time and device
+identifiers — is stored as-is, on a volume that currently has neither
+encryption at rest nor an off-box backup. Stripping EXIF in the browser before
+upload is a small change if that trade stops being acceptable.
+
 ## Backups — read this before trusting it
 
 `scripts/snapshot.sh` takes a timestamped, gzipped copy of the SQLite database

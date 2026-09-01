@@ -1,0 +1,198 @@
+import { createWriteStream } from 'node:fs';
+import { mkdir, unlink } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { pipeline } from 'node:stream/promises';
+import '@fastify/multipart';
+import type { FastifyInstance } from 'fastify';
+import { authenticate } from '../auth';
+import { type DB, newId, nextSeq } from '../db';
+import {
+  MEDIA_DIR,
+  extensionFor,
+  mimeFor,
+  signMediaUrl,
+  verifyMediaUrl,
+} from '../media';
+
+interface MediaRow {
+  id: string;
+  user_id: string;
+  taken_on: string;
+  kind: string;
+  storage_path: string;
+  visibility: 'private' | 'shared';
+  shared_at: string | null;
+  created_at: string;
+}
+
+/**
+ * Authorises a viewer against one photo.
+ *
+ * §9.2: the partner receives nothing at all for a private photo — not
+ * metadata, not a thumbnail, not a path. Checked on the endpoint rather than
+ * folded into a query, because an id supplied by a client is a request, not a
+ * permission.
+ */
+function visibleTo(row: MediaRow | undefined, viewerId: string): boolean {
+  if (!row) return false;
+  if (row.user_id === viewerId) return true;
+  return row.visibility === 'shared';
+}
+
+export function registerMediaRoutes(app: FastifyInstance, db: DB) {
+  const requireAuth = authenticate(db);
+
+  /** Upload. Private at the moment of creation — sharing is a second, deliberate act (§9.1). */
+  app.post('/api/v1/media', { preHandler: requireAuth }, async (request, reply) => {
+    const file = await request.file({ limits: { fileSize: 25 * 1024 * 1024 } });
+    if (!file) return reply.code(400).send({ error: 'expected a file' });
+
+    const extension = extensionFor(file.mimetype);
+    if (!extension) {
+      return reply.code(415).send({ error: `unsupported image type ${file.mimetype}` });
+    }
+
+    const takenOn =
+      typeof file.fields?.taken_on === 'object' && file.fields.taken_on
+        ? String((file.fields.taken_on as { value?: unknown }).value ?? '')
+        : '';
+
+    const userId = request.user!.id;
+    const id = newId();
+    const dir = resolve(MEDIA_DIR, userId);
+    await mkdir(dir, { recursive: true });
+
+    // Random name: never derived from the user, the date or the original
+    // filename, so a path can't be guessed from anything a client knows.
+    const storagePath = resolve(dir, `${id}.${extension}`);
+
+    try {
+      await pipeline(file.file, createWriteStream(storagePath));
+    } catch {
+      await unlink(storagePath).catch(() => {});
+      return reply.code(500).send({ error: 'could not store the file' });
+    }
+
+    if (file.file.truncated) {
+      await unlink(storagePath).catch(() => {});
+      return reply.code(413).send({ error: 'file too large (25MB limit)' });
+    }
+
+    const now = new Date().toISOString();
+    db.prepare(
+      `INSERT INTO media (id, user_id, taken_on, kind, storage_path, thumb_path,
+                          visibility, shared_at, created_at, updated_at, server_seq)
+       VALUES (?, ?, ?, 'progress_photo', ?, NULL, 'private', NULL, ?, ?, ?)`,
+    ).run(id, userId, takenOn || now.slice(0, 10), storagePath, now, now, nextSeq(db));
+
+    return { id, visibility: 'private', taken_on: takenOn || now.slice(0, 10) };
+  });
+
+  /**
+   * Share or unshare. Owner only.
+   *
+   * §9.4: unsharing revokes future access. It cannot recall a copy already
+   * downloaded, and the UI says so rather than overpromising.
+   */
+  app.post<{ Params: { id: string }; Body: { visibility?: string } }>(
+    '/api/v1/media/:id/visibility',
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const row = db.prepare('SELECT * FROM media WHERE id = ?').get(request.params.id) as
+        | MediaRow
+        | undefined;
+
+      // A non-owner gets 404, not 403: confirming a photo exists is itself a leak.
+      if (!row || row.user_id !== request.user!.id) {
+        return reply.code(404).send({ error: 'no such photo' });
+      }
+
+      const next = request.body?.visibility === 'shared' ? 'shared' : 'private';
+      const now = new Date().toISOString();
+      db.prepare(
+        'UPDATE media SET visibility = ?, shared_at = ?, updated_at = ?, server_seq = ? WHERE id = ?',
+      ).run(next, next === 'shared' ? now : null, now, nextSeq(db), row.id);
+
+      return { id: row.id, visibility: next };
+    },
+  );
+
+  /** Mint a short-lived signed URL. Authorisation happens here, not at render. */
+  app.get<{ Params: { id: string } }>(
+    '/api/v1/media/:id/url',
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const row = db.prepare('SELECT * FROM media WHERE id = ?').get(request.params.id) as
+        | MediaRow
+        | undefined;
+
+      if (!visibleTo(row, request.user!.id)) {
+        return reply.code(404).send({ error: 'no such photo' });
+      }
+
+      return { url: signMediaUrl(row!.id, request.user!.id), expires_in: 300 };
+    },
+  );
+
+  /**
+   * Serve the bytes. Deliberately not behind `requireAuth` — an <img> tag
+   * cannot send an Authorization header — but the signature names the viewer,
+   * and visibility is re-checked here. An unshared photo stops being served
+   * immediately, even if a signed URL is still within its window.
+   */
+  app.get<{ Params: { id: string }; Querystring: { exp?: string; v?: string; sig?: string } }>(
+    '/api/v1/media/:id/file',
+    async (request, reply) => {
+      const { exp, v, sig } = request.query;
+      if (!exp || !v || !sig) return reply.code(400).send({ error: 'unsigned request' });
+
+      if (!verifyMediaUrl(request.params.id, v, Number(exp), sig)) {
+        return reply.code(403).send({ error: 'expired or invalid signature' });
+      }
+
+      const row = db.prepare('SELECT * FROM media WHERE id = ?').get(request.params.id) as
+        | MediaRow
+        | undefined;
+
+      // Re-check now, not at signing time: this is what makes unsharing bite.
+      if (!visibleTo(row, v)) return reply.code(404).send({ error: 'no such photo' });
+
+      return reply
+        .header('content-type', mimeFor(row!.storage_path))
+        .header('cache-control', 'private, no-store')
+        .send((await import('node:fs')).createReadStream(row!.storage_path));
+    },
+  );
+
+  /** Own photos in full; the partner's only when shared (§9.2). */
+  app.get('/api/v1/media', { preHandler: requireAuth }, async (request) => {
+    const rows = db
+      .prepare(
+        `SELECT id, user_id, taken_on, kind, visibility, shared_at, created_at
+           FROM media
+          WHERE user_id = ? OR visibility = 'shared'
+          ORDER BY taken_on DESC`,
+      )
+      .all(request.user!.id) as Omit<MediaRow, 'storage_path'>[];
+
+    // storage_path is never serialised to any client, owner included.
+    return { media: rows };
+  });
+
+  app.delete<{ Params: { id: string } }>(
+    '/api/v1/media/:id',
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const row = db.prepare('SELECT * FROM media WHERE id = ?').get(request.params.id) as
+        | MediaRow
+        | undefined;
+      if (!row || row.user_id !== request.user!.id) {
+        return reply.code(404).send({ error: 'no such photo' });
+      }
+
+      await unlink(row.storage_path).catch(() => {});
+      db.prepare('DELETE FROM media WHERE id = ?').run(row.id);
+      return { deleted: row.id };
+    },
+  );
+}

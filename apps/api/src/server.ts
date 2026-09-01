@@ -1,3 +1,4 @@
+import fastifyMultipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
 import { existsSync } from 'node:fs';
@@ -7,6 +8,8 @@ import { APP_TIMEZONE, today } from '@lifestyle/shared';
 import { type DB, openDatabase } from './db';
 import { ensureBootstrapUser, registerAuthRoutes } from './routes/auth';
 import { registerChallengeRoutes } from './routes/challenges';
+import { registerMediaRoutes } from './routes/media';
+import { registerReactionRoutes } from './routes/reactions';
 import { registerSyncRoutes } from './routes/sync';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -14,6 +17,9 @@ const WEB_DIST = resolve(here, '../../web/dist');
 
 export function buildServer(db: DB = openDatabase()) {
   const app = Fastify({ logger: { transport: undefined } });
+
+  // Progress photos upload as multipart; nothing else in the API uses it.
+  app.register(fastifyMultipart, { attachFieldsToBody: false });
 
   app.get('/api/v1/health', async () => ({
     ok: true,
@@ -25,6 +31,8 @@ export function buildServer(db: DB = openDatabase()) {
   registerAuthRoutes(app, db);
   registerSyncRoutes(app, db);
   registerChallengeRoutes(app, db);
+  registerMediaRoutes(app, db);
+  registerReactionRoutes(app, db);
 
   /*
    * Same origin: Fastify serves the built PWA alongside /api/*, so there is no

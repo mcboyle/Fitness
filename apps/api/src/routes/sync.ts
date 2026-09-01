@@ -14,15 +14,30 @@ const PULLED_TABLES = [
   'challenges',
   'challenge_members',
   'pauses',
+  'reactions',
 ] as const;
 
-function pull(db: DB, since: number) {
+function pull(db: DB, since: number, viewerId: string) {
   const rows = Object.fromEntries(
     PULLED_TABLES.map((table) => [
       table,
       db.prepare(`SELECT * FROM ${table} WHERE server_seq > ? ORDER BY server_seq`).all(since),
     ]),
-  );
+  ) as Record<string, Record<string, unknown>[]>;
+
+  /*
+   * A reaction on a private photo would otherwise disclose that the photo
+   * exists — the one thing §9.2 says must never reach the partner. Photos
+   * themselves never travel in the sync payload at all (§10); they have their
+   * own endpoint.
+   */
+  rows.reactions = rows.reactions.filter((reaction) => {
+    if (reaction.target_kind !== 'photo' || !reaction.target_media_id) return true;
+    const media = db
+      .prepare('SELECT user_id, visibility FROM media WHERE id = ?')
+      .get(reaction.target_media_id) as { user_id: string; visibility: string } | undefined;
+    return !!media && (media.user_id === viewerId || media.visibility === 'shared');
+  });
 
   return { cursor: currentSeq(db), server_date: today(), rows };
 }
@@ -33,7 +48,10 @@ export function registerSyncRoutes(app: FastifyInstance, db: DB) {
   app.get<{ Querystring: { since?: string } }>(
     '/api/v1/sync',
     { preHandler: requireAuth },
-    async (request) => ({ ...pull(db, Number(request.query.since ?? 0)), rejected: [] }),
+    async (request) => ({
+      ...pull(db, Number(request.query.since ?? 0), request.user!.id),
+      rejected: [],
+    }),
   );
 
   app.post<{ Body: { since?: number; ops?: SyncOp[] } }>(
@@ -51,7 +69,7 @@ export function registerSyncRoutes(app: FastifyInstance, db: DB) {
         recomputeMemberStats(db, request.user!.id);
       }
 
-      return { ...pull(db, Number(request.body?.since ?? 0)), rejected };
+      return { ...pull(db, Number(request.body?.since ?? 0), request.user!.id), rejected };
     },
   );
 }
