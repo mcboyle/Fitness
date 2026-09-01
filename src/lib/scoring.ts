@@ -22,8 +22,8 @@ export const SCORED_LABELS: Record<ScoredItem, string> = {
   water: 'Water',
   reading: 'Reading',
   sleep: 'Sleep',
-  self_care: 'Self-care',
-  journaled: 'Journaled',
+  self_care: 'Self-Care',
+  journaled: 'Daily Journal',
 };
 
 /** Buckets fill the steps ring in thirds when no exact count was given. */

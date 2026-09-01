@@ -14,7 +14,7 @@ export interface RingSpec {
   scored: boolean;
 }
 
-const BUCKET_LABEL = {
+export const BUCKET_LABEL = {
   low: 'under 5k',
   mid: '5–10k',
   high: 'over 10k',

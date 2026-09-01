@@ -23,8 +23,8 @@ const TOGGLES: Toggle[] = [
   { key: 'whole_food', label: 'Whole food', scored: false },
   { key: 'no_alcohol', label: 'No alcohol', scored: false },
   { key: 'no_junk_food', label: 'No junk food', scored: false },
-  { key: 'self_care', label: 'Self-care', scored: true },
-  { key: 'journaled', label: 'Journaled', hint: 'on paper', scored: true },
+  { key: 'self_care', label: 'Self-Care', scored: true },
+  { key: 'journaled', label: 'Daily Journal', hint: 'on paper', scored: true },
 ];
 
 export function TogglePills({

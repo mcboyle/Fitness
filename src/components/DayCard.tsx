@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { DailyLog, StepsBucket, UserSettings, WorkoutType } from '../db/types';
+import { BUCKET_LABEL } from './rings/specs';
 import { BigButton, Card, CardLabel, Chip, StepButton } from './ui';
 
 /** Open question in spec §14 — the increment lives here so it's one edit. */
@@ -7,11 +8,9 @@ const WATER_INCREMENT_OZ = 8;
 const PAGES_INCREMENT = 5;
 const WORKOUT_INCREMENT_MIN = 15;
 
-const BUCKETS: { value: StepsBucket; label: string }[] = [
-  { value: 'low', label: 'under 5k' },
-  { value: 'mid', label: '5–10k' },
-  { value: 'high', label: 'over 10k' },
-];
+const BUCKETS: { value: StepsBucket; label: string }[] = (
+  ['low', 'mid', 'high'] as StepsBucket[]
+).map((value) => ({ value, label: BUCKET_LABEL[value] }));
 
 const WORKOUT_TYPES: WorkoutType[] = ['strength', 'cardio', 'dance', 'other'];
 
@@ -123,10 +122,52 @@ function StepsRow({ log, settings, locked, onPatch }: DayCardProps) {
   const [showExact, setShowExact] = useState(log.steps != null);
   const bucketsVisible = settings.step_entry_mode !== 'exact';
   const exactAvailable = settings.step_entry_mode !== 'buckets';
+  const exactMode = exactAvailable && (showExact || !bucketsVisible);
+  const bucketLabel = log.steps_bucket ? BUCKET_LABEL[log.steps_bucket] : null;
 
   return (
     <Card>
       <CardLabel color="var(--ring-steps)">Steps</CardLabel>
+
+      {/*
+        The other three rows lead with a big number. Without one here a bucket
+        reads as "100%" on the ring and no count anywhere on the card.
+      */}
+      <div className="mb-3 flex items-baseline gap-2">
+        {exactMode ? (
+          <>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              disabled={locked}
+              value={log.steps ?? ''}
+              placeholder="0"
+              onChange={(e) => {
+                const raw = e.target.value;
+                onPatch({ steps: raw === '' ? null : Math.max(0, Number(raw) || 0) });
+              }}
+              aria-label="Exact step count"
+              // Sized to its content so "/ 10,000" sits beside the number
+              // rather than across the card. `field-sizing` isn't on iOS yet.
+              style={{ width: `${Math.max(1, String(log.steps ?? '').length)}ch` }}
+              className="font-display text-ink min-w-[1ch] bg-transparent text-3xl font-extrabold tabular-nums outline-none disabled:opacity-60"
+            />
+            <span className="text-faint text-base font-semibold">
+              / {settings.goal_steps.toLocaleString()}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="font-display text-ink text-3xl font-extrabold">
+              {bucketLabel ?? '—'}
+            </span>
+            <span className="text-faint text-base font-semibold">
+              {bucketLabel ? 'estimated' : `of ${settings.goal_steps.toLocaleString()}`}
+            </span>
+          </>
+        )}
+      </div>
 
       {bucketsVisible && (
         <div className="flex flex-wrap gap-2">
@@ -153,50 +194,19 @@ function StepsRow({ log, settings, locked, onPatch }: DayCardProps) {
         </div>
       )}
 
-      {exactAvailable &&
-        (showExact ? (
-          <div className="mt-3 flex items-baseline gap-2">
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              autoFocus={bucketsVisible}
-              disabled={locked}
-              value={log.steps ?? ''}
-              placeholder="0"
-              onChange={(e) => {
-                const raw = e.target.value;
-                onPatch({ steps: raw === '' ? null : Math.max(0, Number(raw) || 0) });
-              }}
-              aria-label="Exact step count"
-              className="font-display text-ink w-32 bg-transparent text-2xl font-extrabold tabular-nums outline-none disabled:opacity-60"
-            />
-            <span className="text-faint text-xs">
-              of {settings.goal_steps.toLocaleString()}
-            </span>
-            {bucketsVisible && (
-              <button
-                type="button"
-                onClick={() => {
-                  setShowExact(false);
-                  onPatch({ steps: null });
-                }}
-                className="text-accent ml-auto text-xs font-semibold"
-              >
-                use buckets
-              </button>
-            )}
-          </div>
-        ) : (
-          <button
-            type="button"
-            disabled={locked}
-            onClick={() => setShowExact(true)}
-            className="text-accent mt-3 text-xs font-semibold disabled:opacity-40"
-          >
-            enter exact
-          </button>
-        ))}
+      {exactAvailable && bucketsVisible && (
+        <button
+          type="button"
+          disabled={locked}
+          onClick={() => {
+            setShowExact(!showExact);
+            if (showExact) onPatch({ steps: null });
+          }}
+          className="text-accent mt-3 text-xs font-semibold disabled:opacity-40"
+        >
+          {exactMode ? 'use buckets' : 'enter exact'}
+        </button>
+      )}
     </Card>
   );
 }
