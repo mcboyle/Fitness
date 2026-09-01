@@ -10,4 +10,5 @@ export type * from './types';
 export * from './defaults';
 export * from './rolling';
 export * from './scoring';
+export * from './sync';
 export * from './time';

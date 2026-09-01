@@ -167,3 +167,62 @@ function isCompleteOn(
   const log = logsByDate.get(date);
   return !!log && isDayComplete(log, settings);
 }
+
+/**
+ * A pause left unanswered for 24 hours reads as approved (§7). Evaluated
+ * lazily at read time on both client and server — there is no cron job
+ * anywhere in this system, and this is the reason there doesn't need to be.
+ */
+export function effectivePauseStatus(
+  pause: { status: string; created_at: string },
+  now: Date = new Date(),
+): 'pending' | 'approved' | 'declined' {
+  if (pause.status !== 'pending') {
+    return pause.status as 'approved' | 'declined';
+  }
+  const age = now.getTime() - new Date(pause.created_at).getTime();
+  return age >= 24 * 60 * 60 * 1000 ? 'approved' : 'pending';
+}
+
+/**
+ * Dates covered by an effectively-approved pause, for one user.
+ *
+ * Approval backdates to the declared start date whether it was granted by tap
+ * or by the 24-hour timer, so a day boundary falling inside the pending window
+ * doesn't matter — the streak is made whole retroactively (§7).
+ */
+export function pausedDates(
+  pauses: { user_id: string; start_date: IsoDate; end_date: IsoDate; status: string; created_at: string }[],
+  userId: string,
+  now: Date = new Date(),
+): Set<IsoDate> {
+  const dates = new Set<IsoDate>();
+
+  for (const pause of pauses) {
+    if (pause.user_id !== userId) continue;
+    if (effectivePauseStatus(pause, now) !== 'approved') continue;
+
+    let cursor = pause.start_date;
+    for (let guard = 0; cursor <= pause.end_date && guard < 400; guard += 1) {
+      dates.add(cursor);
+      cursor = addDays(cursor, 1);
+    }
+  }
+
+  return dates;
+}
+
+/** Marks paused days on a history so the streak can freeze across them. */
+export function applyPauses(
+  logsByDate: Map<IsoDate, DailyLog>,
+  paused: Set<IsoDate>,
+): Map<IsoDate, DailyLog> {
+  if (paused.size === 0) return logsByDate;
+
+  const merged = new Map(logsByDate);
+  for (const date of paused) {
+    const existing = merged.get(date);
+    merged.set(date, { ...(existing ?? ({ date } as DailyLog)), paused: true });
+  }
+  return merged;
+}

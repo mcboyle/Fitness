@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { APP_TIMEZONE, today } from '@lifestyle/shared';
 import { type DB, openDatabase } from './db';
 import { ensureBootstrapUser, registerAuthRoutes } from './routes/auth';
+import { registerChallengeRoutes } from './routes/challenges';
+import { registerSyncRoutes } from './routes/sync';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const WEB_DIST = resolve(here, '../../web/dist');
@@ -21,6 +23,8 @@ export function buildServer(db: DB = openDatabase()) {
   }));
 
   registerAuthRoutes(app, db);
+  registerSyncRoutes(app, db);
+  registerChallengeRoutes(app, db);
 
   /*
    * Same origin: Fastify serves the built PWA alongside /api/*, so there is no
