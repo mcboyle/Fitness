@@ -3,6 +3,13 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const API_PROXY = {
+  '/api': {
+    target: process.env.API_URL ?? 'http://localhost:8787',
+    changeOrigin: true,
+  },
+};
+
 export default defineConfig({
   plugins: [
     react(),
@@ -40,5 +47,16 @@ export default defineConfig({
   ],
   server: {
     host: true,
+    /*
+     * The client always calls same-origin /api/*. In production Fastify serves
+     * both; in dev Vite forwards to it, so no code differs between the two.
+     */
+    proxy: API_PROXY,
+  },
+  preview: {
+    host: true,
+    // `vite preview` serves the production bundle; the smoke run drives it
+    // against a real API, so it needs the same forwarding dev has.
+    proxy: API_PROXY,
   },
 });

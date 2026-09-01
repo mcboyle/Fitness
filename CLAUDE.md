@@ -52,7 +52,15 @@ npm run smoke    # builds, then loads the app in a real browser and asserts
 npm run shots    # screenshots: both themes x both ring layouts, phone-sized
 npm run check    # lint + test + smoke — run this before committing
 npm run icons    # regenerate PWA icons from the palette
+npm run api      # Fastify + SQLite on :8787; logs an invite code on an empty db
+npm run twophone # two browser contexts, two users, real sync + offline queue
 ```
+
+The app requires an identity now, so `npm run dev` alone opens the login
+screen. Start `npm run api` too; it prints a bootstrap invite code when the
+database has no users. `npm run smoke` starts its own throwaway API with a
+temporary data directory — a stale one would have its bootstrap code already
+claimed and every run after the first would fail to log in.
 
 `npm test` cannot see runtime crashes and neither can `tsc`. Three shipped
 already. **Run `npm run check`, and look at `npm run shots` for anything
@@ -89,6 +97,16 @@ pass.
 gate the today/yesterday edit window passes. Phase 2 must re-enforce the same
 rule server-side and return the server's date — a client-side-only rule makes
 the streak decoration (§6).
+
+**Each user writes only their own rows.** That is what removes the entire class
+of concurrent-edit conflicts and lets last-write-wins be correct (§10). The
+server enforces it; don't add a path that writes the partner's rows.
+
+**Counters merge upward on stale ops only.** A newer op wins outright,
+including lowering a counter, so `−8 oz` and genuine corrections work. A stale
+op may raise `water_oz`, `pages_read`, `steps` and `workout_minutes` but never
+lower them — offline taps arrive late and must not be lost. `COUNTER_FIELDS` in
+`packages/shared/src/sync.ts`.
 
 **Live queries read; effects write.** Dexie runs `useLiveQuery` in a read-only
 transaction. `readSettings`/`getActiveChallenge` are safe there;

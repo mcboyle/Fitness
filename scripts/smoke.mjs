@@ -11,10 +11,14 @@
  * Run: npm run smoke
  */
 import { spawn } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { networkInterfaces } from 'node:os';
 import { chromium } from 'playwright';
 
 const PORT = 4178;
+const API_PORT = 8791;
 
 /**
  * Both origins are tested on purpose. `localhost` is a secure context and the
@@ -34,9 +38,33 @@ if (LAN_IP) ORIGINS.push(`http://${LAN_IP}:${PORT}`);
 // — that happened four times before anyone noticed. See MISTAKES.md #6.
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT)], {
   cwd: new URL('../apps/web/', import.meta.url),
+  // The preview server proxies /api to the throwaway API this run started.
+  env: { ...process.env, API_URL: `http://localhost:${API_PORT}` },
   stdio: ['ignore', 'pipe', 'pipe'],
   detached: true,
 });
+
+/*
+ * The app requires an identity now, so the smoke run needs a real API. It gets
+ * a throwaway database per run — a stale one would already have its bootstrap
+ * code claimed and every run after the first would fail to log in.
+ */
+const dataDir = mkdtempSync(join(tmpdir(), 'lt-smoke-'));
+const apiProc = spawn('npx', ['tsx', 'src/index.ts'], {
+  cwd: new URL('../apps/api/', import.meta.url),
+  env: { ...process.env, PORT: String(API_PORT), DATA_DIR: dataDir },
+  stdio: ['ignore', 'pipe', 'pipe'],
+  detached: true,
+});
+
+let inviteCode = null;
+let smokeToken = null;
+const watchForCode = (chunk) => {
+  const match = /invite code: ([A-Z0-9]+)/.exec(String(chunk));
+  if (match) inviteCode = match[1];
+};
+apiProc.stdout.on('data', watchForCode);
+apiProc.stderr.on('data', watchForCode);
 
 const failures = [];
 let browser;
@@ -50,10 +78,17 @@ let shuttingDown = false;
 function stopServer() {
   if (shuttingDown) return;
   shuttingDown = true;
+  for (const child of [server, apiProc]) {
+    try {
+      process.kill(-child.pid, 'SIGTERM');
+    } catch {
+      // already gone
+    }
+  }
   try {
-    process.kill(-server.pid, 'SIGTERM');
+    rmSync(dataDir, { recursive: true, force: true });
   } catch {
-    // already gone
+    // best effort
   }
 }
 
@@ -70,6 +105,7 @@ process.on('exit', stopServer);
 
 try {
   await waitForServer();
+  await waitForApi();
   browser = await chromium.launch();
 
   for (const origin of ORIGINS) {
@@ -103,6 +139,31 @@ async function checkOrigin(origin) {
   );
 
   await page.goto(origin, { waitUntil: 'networkidle' });
+
+  // Rows are keyed by user, so the app opens on the login screen. Each origin
+  // gets its own fresh context, so each has to claim an invite of its own.
+  const codeField = page.getByLabel('Invite code');
+  if (await codeField.isVisible().catch(() => false)) {
+    const code = origin === ORIGINS[0] ? inviteCode : await mintPartnerCode();
+    if (!code) {
+      fail('no invite code available — the API never printed one');
+      await context.close();
+      return;
+    }
+    await codeField.fill(code);
+    await page.getByLabel('Your name').fill('Smoke');
+    await page.getByRole('button', { name: 'Join' }).click();
+    await page.waitForSelector('text=streak', { timeout: 15_000 }).catch(() => {
+      fail('signing in did not reach the tracker');
+    });
+    // The first user's token only exists in the browser; lift it so the second
+    // origin can be invited.
+    smokeToken ??= await page.evaluate(
+      () => JSON.parse(localStorage.getItem('lt.session') ?? 'null')?.token ?? null,
+    );
+  } else {
+    fail('the login screen never rendered');
+  }
 
   // The app renders from IndexedDB, so give the first bootstrap a beat.
   await page.waitForSelector('text=streak', { timeout: 15_000 }).catch(() => {
@@ -153,6 +214,29 @@ async function checkOrigin(origin) {
   const secure = await page.evaluate(() => window.isSecureContext);
   console.log(`  ${origin} ok (secureContext=${secure})`);
   await context.close();
+}
+
+/** The second origin needs its own identity; the first user mints it. */
+async function mintPartnerCode() {
+  if (!smokeToken) return null;
+  const res = await fetch(`http://localhost:${API_PORT}/api/v1/invite`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${smokeToken}` },
+  });
+  return (await res.json()).invite_code ?? null;
+}
+
+async function waitForApi() {
+  for (let i = 0; i < 60; i += 1) {
+    try {
+      const res = await fetch(`http://localhost:${API_PORT}/api/v1/health`);
+      if (res.ok && inviteCode) return;
+    } catch {
+      // not up yet
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error('api never came up, or it printed no invite code');
 }
 
 async function waitForServer() {

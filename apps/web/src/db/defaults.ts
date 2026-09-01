@@ -1,11 +1,9 @@
 import { DEFAULT_SETTINGS, emptyDailyLog } from '@lifestyle/shared';
-import type { DailyLog, IsoDate, UserId } from '@lifestyle/shared';
+import type { DailyLog, IsoDate } from '@lifestyle/shared';
+import { currentUserId } from '../api/session';
 import { newId } from '../lib/id';
 
 export { DEFAULT_SETTINGS };
-
-/** Phase 1 is single-user and local. Phase 2 replaces this with the synced id. */
-export const LOCAL_USER_ID: UserId = 'local';
 
 let cachedDeviceId: string | null = null;
 
@@ -37,7 +35,7 @@ export function deviceId(): string {
 /** Browser-side wrapper: supplies this device's identity to the pure factory. */
 export function emptyLog(date: IsoDate, challengeId: string | null): DailyLog {
   return emptyDailyLog({
-    userId: LOCAL_USER_ID,
+    userId: currentUserId(),
     date,
     challengeId,
     deviceId: deviceId(),

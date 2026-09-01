@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useState } from 'react';
 import { db } from '../db/db';
-import { LOCAL_USER_ID } from '../db/defaults';
+import { currentUserId } from '../api/session';
 import {
   ensureChallenge,
   ensureSettings,
@@ -49,7 +49,7 @@ export function useChallenge() {
 }
 
 export function useLog(date: IsoDate): DailyLog | undefined {
-  return useLiveQuery(() => db.daily_log.get([LOCAL_USER_ID, date]), [date]);
+  return useLiveQuery(() => db.daily_log.get([currentUserId(), date]), [date]);
 }
 
 /** Trailing window of logs, keyed by date, for the streak and the 7-day strip. */

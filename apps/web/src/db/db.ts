@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import type { SyncOp } from '@lifestyle/shared';
 import type {
   Challenge,
   ChallengeMember,
@@ -34,6 +35,8 @@ class LifestyleDB extends Dexie {
   documentaries!: Table<Documentary, string>;
   reactions!: Table<Reaction, string>;
   sync_state!: Table<SyncState, string>;
+  /** Pending writes, oldest first. Drained by the sync engine. */
+  outbox!: Table<OutboxOp, number>;
 
   constructor() {
     super('lifestyle-tracker');
@@ -65,7 +68,16 @@ class LifestyleDB extends Dexie {
           if (row.completion_threshold === 3) row.completion_threshold = 4;
         }),
     );
+
+    // Phase 2: the pending-write queue. Every mutation lands locally first and
+    // enqueues here, so the UI never blocks on the network (§10).
+    this.version(3).stores({ outbox: '++id, table, created_at' });
   }
+}
+
+export interface OutboxOp extends SyncOp {
+  id?: number;
+  created_at: string;
 }
 
 export const db = new LifestyleDB();

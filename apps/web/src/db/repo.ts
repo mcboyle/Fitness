@@ -1,5 +1,7 @@
 import { db } from './db';
-import { DEFAULT_SETTINGS, LOCAL_USER_ID, deviceId, emptyLog } from './defaults';
+import { DEFAULT_SETTINGS, deviceId, emptyLog } from './defaults';
+import { currentUserId } from '../api/session';
+import { enqueue } from '../api/sync';
 import type { Challenge, DailyLog, UserSettings } from '@lifestyle/shared';
 import { newId } from '../lib/id';
 import { addDays, isEditable, type IsoDate, today } from '@lifestyle/shared';
@@ -20,7 +22,7 @@ export class EditWindowError extends Error {
  * Read-only. Safe to call from a live query — `ensureSettings` is what writes.
  */
 export async function readSettings(): Promise<UserSettings | undefined> {
-  return db.user_settings.get(LOCAL_USER_ID);
+  return db.user_settings.get(currentUserId());
 }
 
 /**
@@ -35,7 +37,7 @@ export async function ensureSettings(): Promise<UserSettings> {
   if (existing) return existing;
 
   const seeded: UserSettings = {
-    user_id: LOCAL_USER_ID,
+    user_id: currentUserId(),
     ...DEFAULT_SETTINGS,
     updated_at: new Date().toISOString(),
   };
@@ -47,10 +49,13 @@ export async function updateSettings(
   patch: Partial<Omit<UserSettings, 'user_id'>>,
 ): Promise<void> {
   const current = await ensureSettings();
-  await db.user_settings.put({
-    ...current,
-    ...patch,
-    updated_at: new Date().toISOString(),
+  const updated_at = new Date().toISOString();
+  await db.user_settings.put({ ...current, ...patch, updated_at });
+  await enqueue({
+    table: 'user_settings',
+    key: current.user_id,
+    patch: patch as Record<string, unknown>,
+    updated_at,
   });
 }
 
@@ -99,7 +104,7 @@ export async function startChallenge(
     await db.challenges.put(challenge);
     await db.challenge_members.put({
       challenge_id: challenge.id,
-      user_id: LOCAL_USER_ID,
+      user_id: currentUserId(),
       projected_end_date: addDays(startDate, challenge.target_days - 1),
       days_completed: 0,
       days_missed: 0,
@@ -112,7 +117,7 @@ export async function startChallenge(
 }
 
 export async function getLog(date: IsoDate): Promise<DailyLog | undefined> {
-  return db.daily_log.get([LOCAL_USER_ID, date]);
+  return db.daily_log.get([currentUserId(), date]);
 }
 
 /**
@@ -132,13 +137,13 @@ export async function patchLog(
   const challenge = await getActiveChallenge();
 
   return db.transaction('rw', [db.daily_log], async () => {
-    const existing = await db.daily_log.get([LOCAL_USER_ID, date]);
+    const existing = await db.daily_log.get([currentUserId(), date]);
     const base = existing ?? emptyLog(date, challenge?.id ?? null);
 
     const next: DailyLog = {
       ...base,
       ...patch,
-      user_id: LOCAL_USER_ID,
+      user_id: currentUserId(),
       date,
       // Nulled deliberately between challenges: logging continues, feeding no
       // streak or day count (spec §5).
@@ -151,6 +156,24 @@ export async function patchLog(
     await db.daily_log.put(next);
     return next;
   });
+}
+
+/**
+ * The single write path for daily_log stays single: the local row lands first
+ * and the op is queued after, so the UI never waits on the network (§10).
+ */
+export async function patchLogAndSync(
+  date: IsoDate,
+  patch: Partial<Omit<DailyLog, 'user_id' | 'date'>>,
+): Promise<DailyLog> {
+  const next = await patchLog(date, patch);
+  await enqueue({
+    table: 'daily_log',
+    key: date,
+    patch: patch as Record<string, unknown>,
+    updated_at: next.updated_at,
+  });
+  return next;
 }
 
 export async function logsBetween(from: IsoDate, to: IsoDate): Promise<DailyLog[]> {
