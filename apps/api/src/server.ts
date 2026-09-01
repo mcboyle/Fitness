@@ -47,12 +47,49 @@ export function buildServer(db: DB = openDatabase()) {
    * served by Vite with a proxy instead, so a missing dist/ is not an error.
    */
   if (existsSync(WEB_DIST)) {
-    app.register(fastifyStatic, { root: WEB_DIST });
+    app.register(fastifyStatic, {
+      root: WEB_DIST,
+      /*
+       * @fastify/static defaults to max-age=14400, which is catastrophic for a
+       * service worker: the browser will not look for a new one for four hours,
+       * so a deploy simply doesn't reach an installed app. Safari honours it.
+       *
+       * The entry points must always be revalidated; the hashed assets can be
+       * cached forever precisely because their names change when they do.
+       */
+      // Off, so the plugin does not add its own max-age underneath ours.
+      cacheControl: false,
+      setHeaders(reply, path) {
+        const file = path.split('/').pop() ?? '';
+        const alwaysFresh =
+          file === 'sw.js' ||
+          file === 'index.html' ||
+          file === 'registerSW.js' ||
+          file === 'manifest.webmanifest' ||
+          file.startsWith('workbox-');
+
+        reply.header(
+          'cache-control',
+          /*
+           * `private` matters as much as `no-cache` here. Cloudflare's default
+           * Browser Cache TTL rewrites a cacheable .js response to
+           * max-age=14400 regardless of what the origin said — which pinned an
+           * installed app to a four-hour-old service worker and made deploys
+           * appear not to land. Marking it private keeps the edge out of it.
+           */
+          alwaysFresh
+            ? 'private, no-cache, no-store, must-revalidate'
+            : 'public, max-age=31536000, immutable',
+        );
+      },
+    });
     app.setNotFoundHandler((request, reply) => {
       if (request.url.startsWith('/api/')) {
         return reply.code(404).send({ error: 'not found' });
       }
-      return reply.sendFile('index.html'); // client-side routing
+      // Client-side routing. Never cached, or a stale shell outlives a deploy.
+      reply.header('cache-control', 'no-cache, must-revalidate');
+      return reply.sendFile('index.html');
     });
   }
 

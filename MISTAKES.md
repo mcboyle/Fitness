@@ -324,6 +324,42 @@ it. Run the check, read it, then commit as a separate step.
 
 ---
 
+## 13. A deploy that couldn't reach an installed app
+
+**Symptom.** A phone showed the *old* login screen hours after the new one
+shipped, and rejected a valid sign-in code — the old client only knew about
+invite codes. The server was serving the correct build the whole time.
+
+**Cause, in two layers.**
+
+`@fastify/static` defaults to `cache-control: max-age=14400`. Applied to
+`sw.js`, that tells a browser not to look for a new service worker for four
+hours — so an installed PWA keeps serving the previous app shell no matter what
+is deployed.
+
+Fixing the origin was not enough. **Cloudflare rewrote it anyway**: the edge
+returned `max-age=14400` even after Fastify started sending `no-cache`, because
+Cloudflare's default Browser Cache TTL overrides origin headers on cacheable
+extensions like `.js`. Only marking the response `private` kept the edge out of
+it — `cf-cache-status` went from `EXPIRED` to `BYPASS`.
+
+**Fix.** `setHeaders` in `apps/api/src/server.ts` with `cacheControl: false`:
+`sw.js`, `index.html`, `registerSW.js`, `manifest.webmanifest` and the workbox
+runtime get `private, no-cache, no-store, must-revalidate`; content-hashed
+assets get a year and `immutable`, which is safe precisely because their names
+change when they do.
+
+**What made it hard to see.** Every check ran in a fresh browser context, which
+has no service worker and no HTTP cache, so it always got the new build. The bug
+only exists for a client that has been there before — the one case none of the
+harnesses model.
+
+**Rule.** Verify a deploy the way a returning user experiences it, not the way a
+first-time visitor does. And check the headers *at the edge*, not just at the
+origin: a CDN in front of you can rewrite what you carefully set.
+
+---
+
 ## Toolchain snags
 
 Low-value individually; recorded so they aren't rediscovered.
