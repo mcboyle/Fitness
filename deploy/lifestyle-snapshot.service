@@ -1,0 +1,9 @@
+[Unit]
+Description=Snapshot the Winter_Fitness_Tracker database
+After=network.target
+
+[Service]
+Type=oneshot
+User=mboyle
+WorkingDirectory=/home/mboyle/fitness
+ExecStart=/home/mboyle/fitness/scripts/snapshot.sh

@@ -1,0 +1,26 @@
+[Unit]
+Description=Winter_Fitness_Tracker API
+Documentation=https://github.com/mcboyle/Fitness
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mboyle
+WorkingDirectory=/home/mboyle/fitness
+Environment=NODE_ENV=production
+Environment=PORT=8787
+Environment=DATA_DIR=/home/mboyle/fitness/data
+ExecStart=/usr/bin/node /home/mboyle/fitness/node_modules/tsx/dist/cli.mjs /home/mboyle/fitness/apps/api/src/index.ts
+Restart=on-failure
+RestartSec=3s
+
+# The photo store and database live under DATA_DIR; nothing else needs writing.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/mboyle/fitness/data
+
+[Install]
+WantedBy=multi-user.target

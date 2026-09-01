@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly snapshot of the Winter_Fitness_Tracker database
+
+[Timer]
+OnCalendar=hourly
+# Runs a missed snapshot after a reboot rather than skipping the window.
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target
