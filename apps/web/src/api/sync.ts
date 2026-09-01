@@ -109,12 +109,18 @@ async function applyServerRows(payload: SyncPayload) {
       db.challenges,
       db.challenge_members,
       db.pauses,
+      db.reactions,
     ],
     async () => {
       for (const [table, list] of Object.entries(rows)) {
         if (!Array.isArray(list) || list.length === 0) continue;
         const target = (db as unknown as Record<string, { bulkPut: (r: unknown[]) => Promise<unknown> }>)[table];
-        if (!target?.bulkPut) continue;
+        if (!target?.bulkPut) {
+          // A pulled table with no local home is a schema mismatch, not
+          // something to swallow: it silently drops rows.
+          console.error(`sync: no local table for "${table}" — rows dropped`);
+          continue;
+        }
         await target.bulkPut(list.map(normalise));
       }
     },

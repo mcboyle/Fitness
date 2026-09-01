@@ -104,6 +104,11 @@ gate the today/yesterday edit window passes. Phase 2 must re-enforce the same
 rule server-side and return the server's date — a client-side-only rule makes
 the streak decoration (§6).
 
+**Never swallow a write error.** `.catch(() => undefined)` around a mutation
+has hidden a real bug every time it has appeared here (MISTAKES.md #5, #9,
+#11). If a failure doesn't matter, write down why; if it does, let it change
+what the UI shows.
+
 **A local row is not a synced row.** Writes land in IndexedDB and queue an op;
 a failing push retries forever and looks identical to a slow network. When
 verifying anything that writes, assert the sync footer reads "Synced" and

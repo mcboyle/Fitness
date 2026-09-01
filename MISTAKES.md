@@ -260,6 +260,40 @@ them is idle.
 
 ---
 
+## 11. Three silent failures behind a green UI, in one feature
+
+Reactions shipped looking fine and were broken three ways. All three shared a
+shape: **the interface reported success the server never granted.**
+
+**11a. Pulled reactions were dropped.** `applyServerRows` opens a Dexie
+transaction over an explicit table list, and `reactions` wasn't in it, so every
+write threw. The catch in `sync()` turned that into a status flag nobody was
+watching. The pull "succeeded" and the rows vanished. `applyServerRows` now
+logs loudly when a pulled table has no local home, instead of `continue`-ing
+past it.
+
+**11b. Every bodyless POST 400'd.** The API client set
+`content-type: application/json` unconditionally, and Fastify rejects an empty
+body that claims to be JSON. `markSeen` sends no body, so marking a reaction
+seen always failed. The header is now set only when there is a body.
+
+**11c. A `.catch()` hid 11b.** `dismiss()` was
+`markSeen(id).catch(() => undefined)` followed by clearing the badge. So the
+inbox cleared, the server recorded nothing, and the reactions would return on
+the next load. Now `Promise.allSettled`, and the badge only clears if every
+call actually succeeded.
+
+**The pattern worth naming.** This is the third entry (#5, #9, now #11) where
+something reported success it hadn't earned. Every instance was a place where a
+failure had somewhere convenient to go: a stale artifact, a retry queue, a
+`.catch`. **A swallowed error is a bug you have chosen not to find.**
+
+**Rule.** Never `.catch(() => undefined)` around a write. If a failure genuinely
+doesn't matter, say why in a comment. If it does, let it change what the UI
+shows.
+
+---
+
 ## Toolchain snags
 
 Low-value individually; recorded so they aren't rediscovered.

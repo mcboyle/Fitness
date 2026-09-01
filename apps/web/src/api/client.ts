@@ -26,7 +26,9 @@ export async function api<T>(
 ): Promise<T> {
   const { auth = true, ...rest } = init;
   const headers = new Headers(rest.headers);
-  headers.set('content-type', 'application/json');
+  // Only when there is something to parse: Fastify rejects an empty body that
+  // claims to be JSON, which silently 400'd every bodyless POST.
+  if (rest.body !== undefined) headers.set('content-type', 'application/json');
 
   if (auth) {
     const session = getSession();

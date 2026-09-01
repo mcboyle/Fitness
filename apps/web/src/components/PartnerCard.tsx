@@ -14,12 +14,14 @@ export function PartnerCard({
   settings,
   layout,
   onFocus,
+  children,
 }: {
   name: string;
   log: DailyLog;
   settings: UserSettings;
   layout: UserSettings['ring_layout'];
   onFocus: () => void;
+  children?: React.ReactNode;
 }) {
   const scored = scoreCount(log, settings);
 
@@ -36,6 +38,7 @@ export function PartnerCard({
           <Rings specs={ringSpecs(log, settings)} layout={layout} scale={0.6} />
         </div>
       </button>
+      {children}
     </Card>
   );
 }

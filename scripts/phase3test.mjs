@@ -64,6 +64,22 @@ console.log('8 shared calendar    :', cal.replace(/\n/g,' | ').slice(0,80));
 const cells=await A.p.locator('section').filter({hasText:'Last 35 days'}).first().locator('div[aria-label]').count();
 console.log('9 both rows rendered :', cells===70?`PASS - ${cells} cells (2 users x 35)`:`cells=${cells}`);
 
+// --- reactions: she reacts to his day, he sees it on next open
+await B.p.getByRole('button',{name:'Today'}).click(); await B.p.waitForTimeout(1500);
+const bar = B.p.getByRole('button',{name:/React .* to Matthew's day/});
+console.log('R1 react affordance  :', await bar.count()?'PASS - visible on partner card':'*** FAIL - none ***');
+if (await bar.count()) {
+  await bar.first().click(); await B.p.waitForTimeout(1500);
+  await B.p.getByLabel('Note').fill('proud of you');
+  await B.p.getByRole('button',{name:'Send'}).click(); await B.p.waitForTimeout(1800);
+  await A.p.reload({waitUntil:'networkidle'}); await A.p.waitForSelector('text=streak'); await A.p.waitForTimeout(3000);
+  const inbox = await A.p.locator('body').innerText();
+  console.log('R2 he sees inbox     :', /new reaction/.test(inbox)?'PASS - '+(/(\d+) new reaction/.exec(inbox)||[])[0]:'*** FAIL ***');
+  console.log('R3 note text         :', /proud of you/.test(inbox)?'PASS':'*** FAIL ***');
+  await A.p.getByRole('button',{name:'Mark all seen'}).click(); await A.p.waitForTimeout(1500);
+  console.log('R4 dismisses         :', /new reaction/.test(await A.p.locator('body').innerText())?'*** FAIL ***':'PASS - cleared');
+}
+
 // The outbox draining is the real proof a write reached the server. Without
 // this, a 500 on push is invisible: the local row exists and the UI looks fine.
 await A.p.waitForTimeout(2500);
@@ -79,3 +95,5 @@ console.log('11 on the server     :', JSON.stringify(serverSide), serverSide.doc
 
 console.log(errs.length?'ERRORS:\n'+errs.join('\n'):'no console errors');
 await b.close();
+
+// --- reactions (appended after the calendar checks)

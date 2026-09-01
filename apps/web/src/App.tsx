@@ -11,6 +11,8 @@ import { CalendarView } from './components/CalendarView';
 import { DocumentaryCard } from './components/DocumentaryCard';
 import { PhotosView } from './components/PhotosView';
 import { TabBar, type View } from './components/TabBar';
+import { ReactBar, ReactionInbox } from './components/Reactions';
+import type { ReactionRow } from './api/reactions';
 import { ROLLING_GOALS } from '@lifestyle/shared';
 import { DayCard } from './components/DayCard';
 import { DayHeader } from './components/DayHeader';
@@ -21,6 +23,7 @@ import { TogglePills } from './components/TogglePills';
 import { Rings } from './components/rings/Rings';
 import { ringSpecs } from './components/rings/specs';
 import { db } from './db/db';
+import { emptyDailyLog } from '@lifestyle/shared';
 import { emptyLog } from './db/defaults';
 import { EditWindowError, patchLogAndSync, updateSettings } from './db/repo';
 import { isEditable, lastSevenDays, rollingWindow } from '@lifestyle/shared';
@@ -111,6 +114,8 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
   const myDocumentaries = documentaries.filter((d) => d.user_id === session.user_id);
   const partnerLogs = usePartnerLogs(session.user_id, date);
   const pauses = usePauses();
+  const reactions = useReactions();
+  const [inboxDismissed, setInboxDismissed] = useState(false);
 
   const rolling = useMemo(
     () => rollingWindow([...byDate.values()], documentaries, media, date),
@@ -121,7 +126,22 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
 
   const log = storedLog ?? emptyLog(date, challenge?.id ?? null);
   const specs = ringSpecs(log, settings);
-  const partnerLog = partnerLogs.find((l) => l.date === date);
+  /*
+   * Render the partner's card whenever we know who they are, not only once
+   * they have logged. An idle partner still exists, and a card that vanishes
+   * takes the reaction affordance with it — the same mistake as the calendar
+   * row (MISTAKES.md #10).
+   */
+  const partnerLog =
+    partnerLogs.find((l) => l.date === date) ??
+    (partner.id
+      ? emptyDailyLog({
+          userId: partner.id,
+          date,
+          challengeId: challenge?.id ?? null,
+          deviceId: 'partner',
+        })
+      : undefined);
 
   return (
     <div className="mx-auto flex min-h-full max-w-md flex-col gap-4 p-4 pb-10">
@@ -130,6 +150,15 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
         myUserId={session.user_id}
         partnerName={partnerName}
       />
+
+      {!inboxDismissed && (
+        <ReactionInbox
+          unseen={reactions.filter(
+            (r) => r.from_user_id !== session.user_id && !r.seen_at,
+          )}
+          onSeen={() => setInboxDismissed(true)}
+        />
+      )}
 
       {view !== 'today' && (
         <h1 className="font-display text-ink text-3xl font-black italic">
@@ -209,7 +238,18 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
           settings={settings}
           layout={settings.ring_layout}
           onFocus={() => undefined}
-        />
+        >
+          <ReactBar
+            date={date}
+            partnerName={partnerName}
+            mine={reactions.filter(
+              (r) =>
+                r.from_user_id === session.user_id &&
+                r.target_kind === 'day' &&
+                r.target_date === date,
+            )}
+          />
+        </PartnerCard>
       )}
       </>
       )}
@@ -349,4 +389,8 @@ function usePartner(myUserId: string): { id: string | null; name: string } {
 /** Every stored log for both users — the shared calendar draws from this. */
 function useAllLogs() {
   return useLiveQuery(() => db.daily_log.toArray(), []) ?? [];
+}
+
+function useReactions(): ReactionRow[] {
+  return (useLiveQuery(() => db.reactions.toArray(), []) ?? []) as unknown as ReactionRow[];
 }
