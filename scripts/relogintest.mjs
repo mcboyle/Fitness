@@ -16,7 +16,7 @@ async function ctx(label) {
 const safari = await ctx('safari');
 await safari.p.getByLabel('Code').fill(CODE);
 await safari.p.getByRole('button', { name: 'Continue' }).click();
-await safari.p.waitForSelector('text=streak', { timeout: 20000 });
+await safari.p.waitForSelector('[data-testid=day-header]', { timeout: 20000 });
 console.log('1 sign in with reusable code :', 'PASS');
 
 // Log something so we can prove the second sign-in doesn't wipe it.
@@ -33,7 +33,7 @@ const sawLogin = await installed.p.getByLabel('Code').isVisible().catch(() => fa
 console.log('3 installed app asks to sign in:', sawLogin ? 'PASS (expected - separate storage)' : 'FAIL');
 await installed.p.getByLabel('Code').fill(CODE);
 await installed.p.getByRole('button', { name: 'Continue' }).click();
-await installed.p.waitForSelector('text=streak', { timeout: 20000 });
+await installed.p.waitForSelector('[data-testid=day-header]', { timeout: 20000 });
 console.log('4 same code works AGAIN      :', 'PASS - not single-use');
 await installed.p.waitForTimeout(2500);
 const synced = await waterOf(installed.p);
@@ -41,7 +41,7 @@ console.log('5 data present after re-login:', synced === before ? `PASS - water 
 
 // Reload the original context: its local data must be untouched.
 await safari.p.reload({ waitUntil: 'networkidle' });
-await safari.p.waitForSelector('text=streak', { timeout: 20000 });
+await safari.p.waitForSelector('[data-testid=day-header]', { timeout: 20000 });
 await safari.p.waitForTimeout(1500);
 const after = await waterOf(safari.p);
 console.log('6 first device not wiped     :', after === before ? `PASS - water still ${after}` : `*** FAIL: ${after} vs ${before} ***`);

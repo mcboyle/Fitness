@@ -157,7 +157,7 @@ async function checkOrigin(origin) {
     await page.getByLabel('Your name').waitFor({ timeout: 10_000 });
     await page.getByLabel('Your name').fill('Smoke');
     await page.getByRole('button', { name: 'Join' }).click();
-    await page.waitForSelector('text=streak', { timeout: 15_000 }).catch(() => {
+    await page.waitForSelector('[data-testid=day-header]', { timeout: 15_000 }).catch(() => {
       fail('signing in did not reach the tracker');
     });
     // The first user's token only exists in the browser; lift it so the second
@@ -170,12 +170,14 @@ async function checkOrigin(origin) {
   }
 
   // The app renders from IndexedDB, so give the first bootstrap a beat.
-  await page.waitForSelector('text=streak', { timeout: 15_000 }).catch(() => {
+  await page.waitForSelector('[data-testid=day-header]', { timeout: 15_000 }).catch(() => {
     fail('the day header never rendered — the app is blank');
   });
 
   const body = await page.locator('body').innerText();
-  for (const expected of ['streak', 'WATER', 'READING', 'STEPS', 'WORKOUT', 'SLEEP']) {
+  // Content checks, not copy checks: these are card headings that name the
+  // tracked metrics, which is a slower-moving thing than a label.
+  for (const expected of ['WATER', 'READING', 'STEPS', 'WORKOUT', 'SLEEP']) {
     if (!body.includes(expected)) fail(`missing from the page: ${expected}`);
   }
 
@@ -183,7 +185,7 @@ async function checkOrigin(origin) {
   await page.getByRole('button', { name: '+8 oz' }).click();
   await page.waitForTimeout(400);
   await page.reload({ waitUntil: 'networkidle' });
-  await page.waitForSelector('text=streak', { timeout: 15_000 }).catch(() => {
+  await page.waitForSelector('[data-testid=day-header]', { timeout: 15_000 }).catch(() => {
     fail('blank after reload');
   });
   const afterReload = await page.locator('body').innerText();

@@ -52,10 +52,21 @@ export function useLog(date: IsoDate): DailyLog | undefined {
   return useLiveQuery(() => db.daily_log.get([currentUserId(), date]), [date]);
 }
 
-/** Trailing window of logs, keyed by date, for the streak and the 7-day strip. */
-export function useLogHistory(end: IsoDate, days: number) {
+/**
+ * Trailing window of one person's logs, keyed by date.
+ *
+ * The user filter is load-bearing: `logsBetween` returns every member's rows,
+ * and a map keyed only by date silently keeps whichever came last. That made
+ * the streak, the x/9 counter and the sleep trend liable to read the partner's
+ * data instead of your own.
+ */
+export function useLogHistory(end: IsoDate, days: number, userId?: string) {
   const from = addDays(end, -(days - 1));
-  const logs = useLiveQuery(() => logsBetween(from, end), [from, end]);
+  const who = userId ?? currentUserId();
+  const logs = useLiveQuery(
+    async () => (await logsBetween(from, end)).filter((log) => log.user_id === who),
+    [from, end, who],
+  );
 
   return useMemo(() => {
     const byDate = new Map<IsoDate, DailyLog>();
@@ -64,10 +75,14 @@ export function useLogHistory(end: IsoDate, days: number) {
   }, [logs]);
 }
 
-export function useStreak(settings: UserSettings | undefined, now: IsoDate): number {
+export function useStreak(
+  settings: UserSettings | undefined,
+  now: IsoDate,
+  userId?: string,
+): number {
   // A streak can only be as long as the history we hold; two years is plenty
   // and keeps the live query bounded.
-  const { byDate } = useLogHistory(now, 730);
+  const { byDate } = useLogHistory(now, 730, userId);
   return useMemo(
     () => (settings ? computeStreak(byDate, settings, now) : 0),
     [byDate, settings, now],

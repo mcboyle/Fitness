@@ -130,7 +130,7 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
   const challenge = useChallenge();
   const storedLog = useLog(date);
   const { byDate } = useLogHistory(date, 14);
-  const streak = useStreak(settings, today);
+  const myStreak = useStreak(settings, today);
 
   useThemeAttribute(settings?.theme);
 
@@ -157,6 +157,16 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
   );
 
   const partner = usePartner(session.user_id);
+  const partnerStreak = useStreak(settings, today, partner.id ?? undefined);
+
+  /* Yours first. A partner with no account yet has no streak to show. */
+  const streaks = useMemo(
+    () => [
+      { name: 'you', streak: myStreak },
+      ...(partner.id ? [{ name: partner.name.toLowerCase(), streak: partnerStreak }] : []),
+    ],
+    [myStreak, partner.id, partner.name, partnerStreak],
+  );
   const partnerName = partner.name;
   const allLogs = useAllLogs();
   const partnerLogs = usePartnerLogs(session.user_id, date);
@@ -317,7 +327,7 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
         challenge={challenge}
         log={storedLog}
         settings={settings}
-        streak={streak}
+        streaks={streaks}
         onDateChange={(next) => setDate(next > today ? today : next)}
         onOpenSettings={() => setSettingsOpen(true)}
       />

@@ -74,8 +74,37 @@ const db = new Database(join(dataDir, 'lifestyle.db'));
  * directly on the copy for each existing user and inject the session. The
  * live database is never touched.
  */
-const users = db.prepare('SELECT id, display_name FROM users ORDER BY created_at').all();
-if (users.length < 2) throw new Error('the copy has fewer than two users');
+/*
+ * Claim any unclaimed seats through the API first, so the tour works whatever
+ * state the database is in — a freshly reset one has codes nobody has redeemed,
+ * and an unclaimed row has no settings, which the UI needs.
+ */
+const unclaimed = db
+  .prepare('SELECT invite_code FROM users WHERE invite_code IS NOT NULL')
+  .all();
+const NAMES = ['Xavian', 'Faith'];
+for (const [i, row] of unclaimed.entries()) {
+  await fetch(`http://localhost:${API_PORT}/api/v1/claim`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      invite_code: row.invite_code,
+      display_name: NAMES[i] ?? `Member ${i + 1}`,
+    }),
+  });
+}
+while (
+  (db.prepare('SELECT COUNT(*) c FROM users WHERE invite_code IS NULL').get()).c < 2
+) {
+  const res = await fetch(`http://localhost:${API_PORT}/api/v1/dev/users`, {
+    headers: { 'x-dev-token': process.env.DEV_TOKEN ?? '' },
+  }).catch(() => null);
+  if (!res?.ok) break;
+  break;
+}
+
+const users = db.prepare('SELECT id, display_name FROM users WHERE invite_code IS NULL ORDER BY created_at').all();
+if (users.length < 2) throw new Error(`the copy has ${users.length} claimed users, need 2`);
 
 const sessions = users.map((user) => {
   const token = [...crypto.getRandomValues(new Uint8Array(32))]
@@ -184,16 +213,27 @@ for (const [i, w] of [186.2, 184.8, 183.1, 182.4].entries()) {
 }
 
 const A = await phone('A', sessions[0]);
-await A.waitForSelector('text=streak', { timeout: 20000 });
+await A.waitForSelector('[data-testid=day-header]', { timeout: 20000 });
+
+// The partner needs a history as well, or their streak and calendar row are
+// empty and the screenshots understate what the app looks like in use.
+const them = sessions[1].user_id;
+for (let n = 8; n >= 1; n -= 1) {
+  if (n === 5) continue;
+  db.prepare(`INSERT OR REPLACE INTO daily_log
+    (user_id,date,challenge_id,water_oz,pages_read,sleep_minutes,self_care,journaled,steps,workout_minutes,no_alcohol,breakfast,lunch,dinner,updated_at,server_seq)
+    VALUES (?,?,?,80,20,480,1,1,12000,45,1,'healthy','healthy','healthy',?,?)`)
+    .run(them, iso(n), chId, nowIso, seq());
+}
 
 const B = await phone('B', sessions[1]);
-await B.waitForSelector('text=streak', { timeout: 20000 });
+await B.waitForSelector('[data-testid=day-header]', { timeout: 20000 });
 for (let i = 0; i < 6; i += 1) await maybeClick(B, '+8 oz');
 await maybeClick(B, /Self-Care/);
 await B.waitForTimeout(1500);
 
 await A.reload({ waitUntil: 'networkidle' });
-await A.waitForSelector('text=streak');
+await A.waitForSelector('[data-testid=day-header]');
 for (let i = 0; i < 9; i += 1) { await maybeClick(A, '+8 oz'); await A.waitForTimeout(60); }
 await maybeClick(A, 'over 10k');
 for (let i = 0; i < 3; i += 1) await maybeClick(A, '+15');
@@ -208,7 +248,7 @@ await A.waitForTimeout(2500);
 
 // B reacts so A's inbox has something in it.
 await B.reload({ waitUntil: 'networkidle' });
-await B.waitForSelector('text=streak');
+await B.waitForSelector('[data-testid=day-header]');
 await B.waitForTimeout(2000);
 const react = B.getByRole('button', { name: /React .* day/ });
 if (await react.count()) {

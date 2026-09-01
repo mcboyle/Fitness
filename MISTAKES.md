@@ -360,6 +360,31 @@ origin: a CDN in front of you can rewrite what you carefully set.
 
 ---
 
+## 14. Visible copy used as a test selector — five harnesses, twice
+
+**Symptom.** Renaming a label broke smoke, tour, twophone, phase3test and
+relogintest simultaneously. Twice: first when "Invite code" became "Code", then
+when the header stopped containing the word "streak".
+
+**Cause.** Every harness waited on user-visible text. Copy is the most
+frequently changed thing in an app and the least suitable thing to key a test
+on — a wording change is not a regression, but it read as one.
+
+**Fix.** `data-testid="day-header"` on the day view, and one shared
+`scripts/lib/app.mjs` with `signIn()` and `waitForApp()`. The five scripts had
+five copies of "how do you sign in", which is why one flow change broke all of
+them; now there is one.
+
+**Also worth noting:** `npm run check` was green when the header change landed,
+because I had not re-run it after editing the component. Green from ten minutes
+ago is not green.
+
+**Rule.** Assert on structure (`data-testid`) or on domain content that names a
+tracked metric. Never on labels, button text, or a sentence someone might
+reword.
+
+---
+
 ## Toolchain snags
 
 Low-value individually; recorded so they aren't rediscovered.

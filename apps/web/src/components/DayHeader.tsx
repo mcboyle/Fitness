@@ -18,7 +18,8 @@ interface DayHeaderProps {
   challenge: Challenge | undefined;
   log: DailyLog | undefined;
   settings: UserSettings;
-  streak: number;
+  /** Yours first, then anyone else's — everything is mutually visible (§1). */
+  streaks: { name: string; streak: number }[];
   onDateChange: (date: IsoDate) => void;
   onOpenSettings: () => void;
 }
@@ -29,7 +30,7 @@ export function DayHeader({
   challenge,
   log,
   settings,
-  streak,
+  streaks,
   onDateChange,
   onOpenSettings,
 }: DayHeaderProps) {
@@ -39,7 +40,12 @@ export function DayHeader({
   const locked = !isEditable(date, today);
 
   return (
-    <header className="grid gap-3">
+    /*
+      A stable hook for the harnesses. They used to wait on the word "streak",
+      so renaming the label broke smoke, tour, twophone, phase3 and relogin all
+      at once. Copy changes; this must not.
+    */
+    <header className="grid gap-3" data-testid="day-header">
       {/*
         Three columns with the outer two the same width, so the date is centred
         against the page rather than against whatever is left over. A flex row
@@ -47,14 +53,12 @@ export function DayHeader({
         "flex-1 text-center" centres the date in the remaining space and it
         lands visibly off to the left.
       */}
-      <div className="grid grid-cols-[5.5rem_1fr_5.5rem] items-center gap-2">
-        <div>
-          <NavButton
-            label="Previous day"
-            icon="prev"
-            onClick={() => onDateChange(addDays(date, -1))}
-          />
-        </div>
+      <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2">
+        <NavButton
+          label="Previous day"
+          icon="prev"
+          onClick={() => onDateChange(addDays(date, -1))}
+        />
         <div className="min-w-0 text-center">
           {/* The date is what orients you; the challenge day number is trivia. */}
           <div className="font-display text-ink text-3xl leading-none font-black tracking-tight italic">
@@ -72,22 +76,12 @@ export function DayHeader({
             {locked && <span className="text-faint">· locked</span>}
           </div>
         </div>
-        <div className="flex justify-end gap-2">
-          <NavButton
-            label="Next day"
-            icon="next"
-            disabled={date >= today}
-            onClick={() => onDateChange(addDays(date, 1))}
-          />
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            aria-label="Settings"
-            className="text-muted bg-raised border-line grid size-10 shrink-0 place-items-center rounded-full border"
-          >
-            <Icon name="settings" size={19} />
-          </button>
-        </div>
+        <NavButton
+          label="Next day"
+          icon="next"
+          disabled={date >= today}
+          onClick={() => onDateChange(addDays(date, 1))}
+        />
       </div>
 
       {/*
@@ -95,27 +89,45 @@ export function DayHeader({
         weighted. This counter is the fix (spec §4): it makes what actually
         counts legible so an unclosed workout ring can't imply a broken day.
       */}
-      <div className="bg-raised border-line flex items-center gap-2 rounded-2xl border px-4 py-2.5">
-        <Icon
-          name="streak"
-          size={18}
-          className={streak > 0 ? 'text-workout' : 'text-faint'}
-        />
-        <span className="font-display text-ink text-lg font-extrabold tabular-nums">
-          {streak}
-          <span className="text-faint ml-1 text-xs font-semibold">
-            day{streak === 1 ? '' : 's'} streak
+      <div className="bg-raised border-line grid gap-2 rounded-2xl border px-4 py-3">
+        <div className="flex items-center gap-3">
+          {streaks.map(({ name, streak }) => (
+            <span key={name} className="flex items-center gap-1.5">
+              <Icon
+                name="streak"
+                size={16}
+                className={streak > 0 ? 'text-workout' : 'text-faint'}
+              />
+              <span className="font-display text-ink text-lg leading-none font-extrabold tabular-nums">
+                {streak}
+              </span>
+              <span className="text-faint text-xs font-semibold">{name}</span>
+            </span>
+          ))}
+
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            aria-label="Settings"
+            className="text-muted ml-auto shrink-0"
+          >
+            <Icon name="settings" size={19} />
+          </button>
+        </div>
+
+        <div className="border-line flex items-center gap-2 border-t pt-2">
+          <span
+            className={cx(
+              'font-display text-sm font-extrabold tabular-nums',
+              scored >= settings.completion_threshold ? 'text-ok' : 'text-muted',
+            )}
+          >
+            {scored}/{SCORED_ITEMS.length} today
           </span>
-        </span>
-        <span
-          className={cx(
-            'ml-auto font-display text-sm font-extrabold tabular-nums',
-            scored >= settings.completion_threshold ? 'text-ok' : 'text-muted',
-          )}
-        >
-          {scored}/{SCORED_ITEMS.length} today
-        </span>
-        <StateBadge state={state} threshold={settings.completion_threshold} />
+          <span className="ml-auto">
+            <StateBadge state={state} threshold={settings.completion_threshold} />
+          </span>
+        </div>
       </div>
     </header>
   );

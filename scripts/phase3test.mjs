@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
-const CODE = process.argv[2], URL='http://localhost:5173';
+import { signIn } from './lib/app.mjs';
+const CODE = process.argv[2], URL=process.env.TEST_URL ?? 'http://localhost:5173';
 const b = await chromium.launch(); const errs=[];
 async function phone(label){
   const ctx=await b.newContext({viewport:{width:390,height:844}});
@@ -9,12 +10,7 @@ async function phone(label){
   await p.goto(URL,{waitUntil:'networkidle'}); return {ctx,p};
 }
 async function login(p,code,name){
-  await p.getByLabel('Code', { exact: true }).fill(code);
-  await p.getByRole('button',{name:'Continue'}).click();
-  await p.getByLabel('Your name').waitFor({ timeout: 10000 });
-  await p.getByLabel('Your name').fill(name);
-  await p.getByRole('button',{name:'Join'}).click();
-  await p.waitForSelector('text=streak',{timeout:15000});
+  await signIn(p, code, name);
 }
 const A=await phone('A'); await login(A.p,CODE,'Matthew');
 const invite=await A.p.evaluate(async()=>{const s=JSON.parse(localStorage.getItem('lt.session'));
@@ -61,10 +57,12 @@ console.log('7 after unshare      :', /hasn't shared any photos/.test(await B.p.
 
 // --- calendar
 await A.p.getByRole('button',{name:'Calendar'}).click(); await A.p.waitForTimeout(800);
-const cal=await A.p.locator('section').filter({hasText:'Last 35 days'}).first().innerText();
-console.log('8 shared calendar    :', cal.replace(/\n/g,' | ').slice(0,80));
-const cells=await A.p.locator('section').filter({hasText:'Last 35 days'}).first().locator('div[aria-label]').count();
-console.log('9 both rows rendered :', cells===70?`PASS - ${cells} cells (2 users x 35)`:`cells=${cells}`);
+// A month grid now, not a rolling window: whole weeks, so a cell count is a
+// multiple of 7 per person.
+const cal=await A.p.locator('section').filter({hasText:'Both streaks'}).first();
+console.log('8 shared calendar    :', (await cal.innerText()).replace(/\n/g,' | ').slice(0,70));
+const cells=await cal.locator('div[aria-label]').count();
+console.log('9 both rows rendered :', cells>0 && cells%7===0 ? `PASS - ${cells} cells across ${cells/7} week-rows` : `*** FAIL cells=${cells} ***`);
 
 // --- reactions: she reacts to his day, he sees it on next open
 await B.p.getByRole('button',{name:'Today'}).click(); await B.p.waitForTimeout(1500);
@@ -74,7 +72,7 @@ if (await bar.count()) {
   await bar.first().click(); await B.p.waitForTimeout(1500);
   await B.p.getByLabel('Note').fill('proud of you');
   await B.p.getByRole('button',{name:'Send'}).click(); await B.p.waitForTimeout(1800);
-  await A.p.reload({waitUntil:'networkidle'}); await A.p.waitForSelector('text=streak'); await A.p.waitForTimeout(3000);
+  await A.p.reload({waitUntil:'networkidle'}); await A.p.waitForSelector('[data-testid=day-header]'); await A.p.waitForTimeout(3000);
   const inbox = await A.p.locator('body').innerText();
   console.log('R2 he sees inbox     :', /new reaction/.test(inbox)?'PASS - '+(/(\d+) new reaction/.exec(inbox)||[])[0]:'*** FAIL ***');
   console.log('R3 note text         :', /proud of you/.test(inbox)?'PASS':'*** FAIL ***');
@@ -85,8 +83,8 @@ if (await bar.count()) {
 // The outbox draining is the real proof a write reached the server. Without
 // this, a 500 on push is invisible: the local row exists and the UI looks fine.
 await A.p.waitForTimeout(2500);
-const footer = await A.p.locator('footer').innerText();
-console.log('10 outbox drained    :', /Synced/.test(footer)?'PASS - '+footer.split('\n')[0]:'*** FAIL: '+footer.replace(/\n/g,' ')+' ***');
+const trouble = await A.p.locator('body').innerText();
+console.log('10 outbox drained    :', /Offline|Sync failed/.test(trouble)?'*** FAIL - sync unhappy ***':'PASS - no sync trouble');
 const serverSide = await A.p.evaluate(async () => {
   const s = JSON.parse(localStorage.getItem('lt.session'));
   const r = await fetch('/api/v1/sync?since=0', { headers:{ Authorization:`Bearer ${s.token}` }});

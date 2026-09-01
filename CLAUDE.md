@@ -104,6 +104,10 @@ gate the today/yesterday edit window passes. Phase 2 must re-enforce the same
 rule server-side and return the server's date — a client-side-only rule makes
 the streak decoration (§6).
 
+**Harnesses assert on `data-testid`, never on visible copy.** Renaming a label
+broke all five at once, twice (MISTAKES.md #14). `scripts/lib/app.mjs` holds the
+one copy of `signIn()` and `waitForApp()`.
+
 **Run `npm run check` as its own command.** Piping it into `tail` and chaining
 `&& git commit` reports `tail`'s exit status, so a failing check commits anyway
 (MISTAKES.md #12). Changing the login screen breaks five harnesses at once —

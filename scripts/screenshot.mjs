@@ -30,7 +30,7 @@ if (await page.getByLabel('Code', { exact: true }).isVisible().catch(() => false
   await page.getByLabel('Your name').fill('Matthew');
   await page.getByRole('button', { name: 'Join' }).click();
 }
-await page.waitForSelector('text=streak', { timeout: 15000 });
+await page.waitForSelector('[data-testid=day-header]', { timeout: 15000 });
 
 // Log a realistic day so the rings have something to draw.
 for (let i = 0; i < 7; i++) await page.getByRole('button', { name: '+8 oz' }).click();

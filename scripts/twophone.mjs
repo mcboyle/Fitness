@@ -1,6 +1,7 @@
 import { chromium } from 'playwright';
+import { signIn, waitForApp } from './lib/app.mjs';
 const CODE = process.argv[2];
-const URL = 'http://localhost:5173';
+const URL = process.env.TEST_URL ?? 'http://localhost:5173';
 const b = await chromium.launch();
 const errs = [];
 
@@ -13,17 +14,9 @@ async function phone(label) {
   return { ctx, p };
 }
 
-async function login(p, code, name) {
-  await p.getByLabel('Invite code').fill(code);
-  await p.getByLabel('Your name').fill(name);
-  await p.getByRole('button', { name:'Join' }).click();
-  await p.waitForSelector('text=streak', { timeout:15000 });
-}
-
-// --- his phone
 const A = await phone('A');
 console.log('login screen shown:', await A.p.getByLabel('Invite code').isVisible());
-await login(A.p, CODE, 'Matthew');
+await signIn(A.p, CODE, 'Matthew');
 console.log('A signed in, header rendered');
 
 // mint her code from his session
@@ -43,7 +36,7 @@ console.log('A logged:', (await A.p.locator('ul').first().innerText()).replace(/
 
 // --- her phone
 const B = await phone('B');
-await login(B.p, invite, 'Her');
+await signIn(B.p, invite, 'Her');
 await B.p.waitForTimeout(2500);
 const bCard = B.p.locator('section', { has: B.p.getByRole('heading', { name: 'Matthew' }) });
 console.log('B sees partner card:', await bCard.count() ? (await bCard.first().innerText()).replace(/\n/g,' | ') : 'NOT FOUND');
@@ -52,14 +45,19 @@ console.log('B sees partner card:', await bCard.count() ? (await bCard.first().i
 await B.ctx.setOffline(true);
 for (let i=0;i<3;i++) await B.p.getByRole('button',{name:'+8 oz'}).click();
 await B.p.waitForTimeout(1200);
-console.log('B offline footer:', (await B.p.locator('footer').innerText()).replace(/\n/g,' | '));
+// The permanent "Synced" line is gone; sync only speaks up when it is unhappy.
+const trouble = async (page) => {
+  const body = await page.locator('body').innerText();
+  return /Offline|Sync failed/.test(body) ? body.match(/(Offline[^\n]*|Sync failed[^\n]*)/)[0] : 'no trouble shown';
+};
+console.log('B offline notice:', await trouble(B.p));
 await B.ctx.setOffline(false);
 await B.p.waitForTimeout(3000);
-console.log('B back online   :', (await B.p.locator('footer').innerText()).replace(/\n/g,' | '));
+console.log('B back online   :', await trouble(B.p));
 
 // --- A pulls her data
 await A.p.reload({ waitUntil:'networkidle' });
-await A.p.waitForSelector('text=streak');
+await waitForApp(A.p);
 await A.p.waitForTimeout(3000);
 const aCard = A.p.locator('section', { has: A.p.getByRole('heading', { name: 'Her' }) });
 console.log('A sees her card :', await aCard.count() ? (await aCard.first().innerText()).replace(/\n/g,' | ') : 'NOT FOUND');
