@@ -168,6 +168,49 @@ fallback, and must be exercised from a non-localhost origin.
 
 ---
 
+## 8. Controlled inputs dropped keystrokes; the steps field was invisible
+
+Two bugs in one report — "steps doesn't have a way to add steps" from the main
+page.
+
+**8a. The field collapsed to a 20px sliver.** Sizing it in `ch` from
+`String(log.steps ?? '').length` gives `1ch` when empty. Combined with 8b, there
+was no visible field to type into.
+
+**8c. Tapping "enter exact" didn't focus it.** A refactor dropped `autoFocus`,
+so no keyboard appeared on iOS. Fixed with a ref plus an `openedByTap` flag —
+focus only when the user asked for the field, never on mount, which would pop
+the keyboard every time the app opens on a day with an exact count.
+
+**8b. Typing "8432" landed as "2".** The real one. Both numeric inputs bound
+`value` directly to the stored number, and every keystroke wrote through
+`patchLog` to IndexedDB. React re-rendered with the *pre-write* value between
+keys, so characters were silently discarded. **Reading had this since Phase 1**
+— "147" became "7".
+
+**Fix.** `useNumericDraft` in `src/components/DayCard.tsx`: local draft state is
+authoritative while the field is focused, and adopts the stored value only when
+it isn't, so the +/− buttons still drive the field.
+
+**Why nothing caught it.** Every check used Playwright's `fill()`, which sets a
+value in one event and never produces a second keystroke against a stale
+render. The bug is invisible to it by construction.
+
+**Guard.** `scripts/smoke.mjs` now types into both numeric fields **one key at
+a time with no delay**, and asserts the field is focused after tapping "enter
+exact".
+
+The first attempt at this guard used `{ delay: 40 }` and **passed against the
+planted regression** — 40ms was enough for the write to land. Only the
+zero-delay version reproduces. Verified: planted, it failed with `typed 8432,
+got "2"` on both origins.
+
+**Rule.** Never bind an input's `value` straight to an async store. And test
+text entry with `keyboard.type()`, never `fill()` — `fill()` cannot see this
+class of bug.
+
+---
+
 ## Toolchain snags
 
 Low-value individually; recorded so they aren't rediscovered.

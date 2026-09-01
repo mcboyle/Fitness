@@ -54,6 +54,12 @@ npm run icons    # regenerate PWA icons from the palette
 already. **Run `npm run check`, and look at `npm run shots` for anything
 visual.**
 
+Never bind an input's `value` directly to a value that round-trips through
+IndexedDB — keystrokes get dropped between renders. Use the `useNumericDraft`
+pattern in `src/components/DayCard.tsx`. When testing text entry use
+`keyboard.type()`, never Playwright's `fill()`: `fill()` sets the value in one
+event and is blind to this (MISTAKES.md #8).
+
 `localhost` is a **secure context** and a LAN IP over HTTP is not, so
 `crypto.randomUUID`, `crypto.subtle` and service workers exist on one and not
 the other. `npm run smoke` tests both origins for exactly this reason

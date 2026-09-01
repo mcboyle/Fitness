@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DailyLog, StepsBucket, UserSettings, WorkoutType } from '../db/types';
 import { BUCKET_LABEL } from './rings/specs';
 import { BigButton, Card, CardLabel, Chip, StepButton } from './ui';
@@ -13,6 +13,45 @@ const BUCKETS: { value: StepsBucket; label: string }[] = (
 ).map((value) => ({ value, label: BUCKET_LABEL[value] }));
 
 const WORKOUT_TYPES: WorkoutType[] = ['strength', 'cardio', 'dance', 'other'];
+
+
+/**
+ * Keeps a numeric text field usable while its value round-trips through
+ * IndexedDB.
+ *
+ * Binding `value` straight to the stored number makes React re-render with the
+ * pre-write value between keystrokes, so characters are silently dropped —
+ * typing "8432" landed as "2". The draft is authoritative while focused, and
+ * adopts the stored value only when the user isn't typing (so the +/- buttons
+ * still update the field). See MISTAKES.md #8.
+ */
+function useNumericDraft(
+  value: number | null,
+  commit: (next: number | null) => void,
+) {
+  const asText = value == null ? '' : String(value);
+  const [draft, setDraft] = useState(asText);
+  const focused = useRef(false);
+
+  useEffect(() => {
+    if (!focused.current) setDraft(asText);
+  }, [asText]);
+
+  return {
+    value: draft,
+    onFocus: () => {
+      focused.current = true;
+    },
+    onBlur: () => {
+      focused.current = false;
+      setDraft(asText);
+    },
+    onChange: (raw: string) => {
+      setDraft(raw);
+      commit(raw === '' ? null : Math.max(0, Number(raw) || 0));
+    },
+  };
+}
 
 interface DayCardProps {
   log: DailyLog;
@@ -73,6 +112,9 @@ function WaterRow({ log, settings, locked, onPatch }: DayCardProps) {
 
 function ReadingRow({ log, settings, locked, onPatch }: DayCardProps) {
   const met = log.pages_read >= settings.goal_pages;
+  const pages = useNumericDraft(log.pages_read, (next) =>
+    onPatch({ pages_read: next ?? 0 }),
+  );
 
   return (
     <Card>
@@ -93,10 +135,10 @@ function ReadingRow({ log, settings, locked, onPatch }: DayCardProps) {
             inputMode="numeric"
             min={0}
             disabled={locked}
-            value={log.pages_read}
-            onChange={(e) =>
-              onPatch({ pages_read: Math.max(0, Number(e.target.value) || 0) })
-            }
+            value={pages.value}
+            onFocus={pages.onFocus}
+            onBlur={pages.onBlur}
+            onChange={(e) => pages.onChange(e.target.value)}
             aria-label="Pages read"
             className="font-display text-ink w-full bg-transparent text-3xl font-extrabold tabular-nums outline-none disabled:opacity-60"
           />
@@ -125,6 +167,19 @@ function StepsRow({ log, settings, locked, onPatch }: DayCardProps) {
   const exactMode = exactAvailable && (showExact || !bucketsVisible);
   const bucketLabel = log.steps_bucket ? BUCKET_LABEL[log.steps_bucket] : null;
 
+  const inputRef = useRef<HTMLInputElement>(null);
+  const openedByTap = useRef(false);
+  const steps = useNumericDraft(log.steps, (next) => onPatch({ steps: next }));
+
+  // Focus only when the user asked for the field — never on mount, which would
+  // pop the keyboard every time the app opens on a day with an exact count.
+  useEffect(() => {
+    if (exactMode && openedByTap.current) {
+      openedByTap.current = false;
+      inputRef.current?.focus();
+    }
+  }, [exactMode]);
+
   return (
     <Card>
       <CardLabel color="var(--ring-steps)">Steps</CardLabel>
@@ -137,21 +192,30 @@ function StepsRow({ log, settings, locked, onPatch }: DayCardProps) {
         {exactMode ? (
           <>
             <input
+              ref={inputRef}
               type="number"
               inputMode="numeric"
               min={0}
               disabled={locked}
-              value={log.steps ?? ''}
+              value={steps.value}
               placeholder="0"
-              onChange={(e) => {
-                const raw = e.target.value;
-                onPatch({ steps: raw === '' ? null : Math.max(0, Number(raw) || 0) });
-              }}
+              onFocus={steps.onFocus}
+              onBlur={steps.onBlur}
+              onChange={(e) => steps.onChange(e.target.value)}
               aria-label="Exact step count"
-              // Sized to its content so "/ 10,000" sits beside the number
-              // rather than across the card. `field-sizing` isn't on iOS yet.
-              style={{ width: `${Math.max(1, String(log.steps ?? '').length)}ch` }}
-              className="font-display text-ink min-w-[1ch] bg-transparent text-3xl font-extrabold tabular-nums outline-none disabled:opacity-60"
+              /*
+               * Grows with the number so "/ 10,000" sits beside it, but never
+               * below the goal's own width — sized from the value alone this
+               * collapsed to a 20px sliver when empty, which read as "there is
+               * no way to enter steps". `field-sizing: content` isn't on iOS.
+               */
+              style={{
+                width: `${Math.max(
+                  String(settings.goal_steps).length,
+                  steps.value.length,
+                )}ch`,
+              }}
+              className="font-display text-ink border-line-strong border-b-2 bg-transparent text-3xl font-extrabold tabular-nums outline-none disabled:opacity-60"
             />
             <span className="text-faint text-base font-semibold">
               / {settings.goal_steps.toLocaleString()}
@@ -199,6 +263,7 @@ function StepsRow({ log, settings, locked, onPatch }: DayCardProps) {
           type="button"
           disabled={locked}
           onClick={() => {
+            openedByTap.current = !showExact;
             setShowExact(!showExact);
             if (showExact) onPatch({ steps: null });
           }}

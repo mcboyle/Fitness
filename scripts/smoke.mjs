@@ -125,6 +125,30 @@ async function checkOrigin(origin) {
     fail('water did not persist across a reload');
   }
 
+  /*
+   * Typed one key at a time on purpose. Playwright's fill() sets the value in
+   * a single event, which is exactly what hid a controlled input dropping
+   * keystrokes while its value round-tripped through IndexedDB — "8432"
+   * landed as "2". See MISTAKES.md #8.
+   */
+  await page.getByRole('button', { name: 'enter exact' }).click();
+  const stepsField = page.getByLabel('Exact step count');
+  if (!(await stepsField.evaluate((el) => el === document.activeElement))) {
+    fail('tapping "enter exact" did not focus the field — no keyboard on iOS');
+  }
+  await page.keyboard.type('8432');
+  await page.waitForTimeout(400);
+  const typed = await stepsField.inputValue();
+  if (typed !== '8432') fail(`steps field dropped keystrokes: typed 8432, got "${typed}"`);
+
+  const pagesField = page.getByLabel('Pages read');
+  await pagesField.click();
+  await pagesField.press('End');
+  await page.keyboard.type('147');
+  await page.waitForTimeout(400);
+  const pages = await pagesField.inputValue();
+  if (!pages.endsWith('147')) fail(`pages field dropped keystrokes: got "${pages}"`);
+
   const secure = await page.evaluate(() => window.isSecureContext);
   console.log(`  ${origin} ok (secureContext=${secure})`);
   await context.close();
