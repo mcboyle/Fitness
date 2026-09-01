@@ -1,6 +1,7 @@
 import { db } from './db';
 import { DEFAULT_SETTINGS, LOCAL_USER_ID, deviceId, emptyLog } from './defaults';
 import type { Challenge, DailyLog, UserSettings } from './types';
+import { newId } from '../lib/id';
 import { addDays, isEditable, type IsoDate, today } from '../lib/time';
 
 export class EditWindowError extends Error {
@@ -85,7 +86,7 @@ export async function startChallenge(
   name = '75 Days',
 ): Promise<Challenge> {
   const challenge: Challenge = {
-    id: crypto.randomUUID(),
+    id: newId(),
     name,
     target_days: 75,
     start_date: startDate,

@@ -1,4 +1,5 @@
 import type { DailyLog, UserSettings, UserId } from './types';
+import { newId } from '../lib/id';
 import { type IsoDate, today } from '../lib/time';
 
 /** Phase 1 is single-user and local. Phase 2 replaces this with the synced id. */
@@ -33,12 +34,12 @@ export function deviceId(): string {
       cachedDeviceId = stored;
       return stored;
     }
-    const created = crypto.randomUUID();
+    const created = newId();
     localStorage.setItem(key, created);
     cachedDeviceId = created;
     return created;
   } catch {
-    cachedDeviceId = crypto.randomUUID();
+    cachedDeviceId = newId();
     return cachedDeviceId;
   }
 }

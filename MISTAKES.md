@@ -132,6 +132,42 @@ trust that killing what you spawned killed what it spawned.
 
 ---
 
+## 7. `crypto.randomUUID` is secure-context only — blank page on any phone
+
+**Symptom.** The app was a blank white screen on a real phone at
+`http://10.0.70.31:5173`. `curl` returned 200, the build was green, 13/13 tests
+passed, and `npm run smoke` passed.
+
+**Cause.** `crypto.randomUUID` is only defined on **secure origins**.
+`localhost` is treated as one; a LAN IP over plain HTTP is not. So
+`deviceId()` and `startChallenge()` threw `TypeError: crypto.randomUUID is not
+a function` before first paint, and React unmounted.
+
+Every automated check ran against `localhost`, the one origin where the bug
+cannot reproduce. The harness was testing the wrong target — the same failure
+shape as #5, where it tested a stale build.
+
+**Fix.** `src/lib/id.ts` exports `newId()`: uses `crypto.randomUUID` when it
+exists, otherwise builds a v4 UUID from `crypto.getRandomValues`, which has no
+secure-context restriction and is still cryptographically random.
+
+**Guard — `scripts/smoke.mjs` now runs every check against both origins,**
+`localhost` (secure) and the detected LAN IP (insecure), each in its own
+browser context.
+
+Verified by reverting all three call sites: `localhost` passed, `10.0.70.31`
+failed with the exact `TypeError` and "the app is blank". The first attempt at
+that regression was inconclusive — reverting one call site wasn't enough,
+because `deviceId()`'s `catch` fell back to `newId()` and swallowed it. **A
+regression test that doesn't fail hasn't proved anything; find out why before
+moving on.**
+
+**Rule.** Anything gated on a secure context — `crypto.randomUUID`,
+`crypto.subtle`, service workers, geolocation — must be feature-detected with a
+fallback, and must be exercised from a non-localhost origin.
+
+---
+
 ## Toolchain snags
 
 Low-value individually; recorded so they aren't rediscovered.

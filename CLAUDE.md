@@ -50,9 +50,14 @@ npm run check    # lint + test + smoke — run this before committing
 npm run icons    # regenerate PWA icons from the palette
 ```
 
-`npm test` cannot see runtime crashes and neither can `tsc`. Two shipped
+`npm test` cannot see runtime crashes and neither can `tsc`. Three shipped
 already. **Run `npm run check`, and look at `npm run shots` for anything
 visual.**
+
+`localhost` is a **secure context** and a LAN IP over HTTP is not, so
+`crypto.randomUUID`, `crypto.subtle` and service workers exist on one and not
+the other. `npm run smoke` tests both origins for exactly this reason
+(MISTAKES.md #7). Feature-detect anything secure-context-gated.
 
 Two process rules, both learned by breaking them (MISTAKES.md #1, #6):
 

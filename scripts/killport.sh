@@ -11,9 +11,10 @@
 #   scripts/killport.sh --orphans      fail if this project left a server up
 set -uo pipefail
 
-# Ports this project's tooling is allowed to bind. `check` asserts they're clear
-# once the run is over.
-PROJECT_PORTS=(4178 4179 4180 4181 4182 4183 5173 5174)
+# Ports the smoke harness spawns servers on. `--orphans` asserts these are clear
+# once a run is over. The dev server (5173) is deliberately long-lived and a
+# human may be using it, so it is NOT policed here — kill it explicitly.
+SMOKE_PORTS=(4178 4179 4180 4181 4182 4183)
 
 listener_on() {
   ss -lptn "sport = :$1" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | head -1
@@ -21,7 +22,7 @@ listener_on() {
 
 if [ "${1:-}" = "--orphans" ]; then
   leaked=()
-  for port in "${PROJECT_PORTS[@]}"; do
+  for port in "${SMOKE_PORTS[@]}"; do
     pid=$(listener_on "$port")
     [ -n "$pid" ] && leaked+=("  :${port} held by pid ${pid} ($(ps -p "$pid" -o comm= 2>/dev/null))")
   done
@@ -29,10 +30,10 @@ if [ "${1:-}" = "--orphans" ]; then
   if [ ${#leaked[@]} -gt 0 ]; then
     echo "orphaned servers still listening:" >&2
     printf '%s\n' "${leaked[@]}" >&2
-    echo "these are bound to all interfaces — run scripts/killport.sh ${PROJECT_PORTS[*]}" >&2
+    echo "these are bound to all interfaces — run scripts/killport.sh ${SMOKE_PORTS[*]}" >&2
     exit 1
   fi
-  echo "no orphaned servers"
+  echo "no orphaned smoke servers"
   exit 0
 fi
 
