@@ -20,7 +20,7 @@ device and there is no sync yet.
   minutes and type.
 - Five toggle pills, the sleep card with its 7-day trend, and the rolling
   "last 7 days" strip.
-- 3-of-6 scoring, the streak, and the today/yesterday edit window.
+- 4-of-6 scoring, the streak, and the today/yesterday edit window.
 - Both themes, fully tokenized, with a user toggle.
 - One local challenge so the header can number days.
 

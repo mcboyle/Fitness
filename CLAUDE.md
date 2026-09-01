@@ -10,6 +10,10 @@ is settled, and most of what looks like an oversight is a deliberate choice with
 a stated reason. [`docs/proposal.md`](docs/proposal.md) has the longer
 reasoning. **Check the spec before "fixing" a behaviour.**
 
+**One deliberate divergence from the spec.** §4 sets the default
+`completion_threshold` to 3; it ships as **4**, decided after device testing.
+Everything else in the spec stands as written.
+
 Things that look like bugs and are not:
 
 - **Workout fills a ring but doesn't score.** Its goal is 4 in a rolling 7 days,
@@ -112,7 +116,7 @@ scripts/             icons, screenshots, smoke, killport
 ## Phase
 
 **Phase 1 is done: single-user, local-only.** Rings in both layouts, day card,
-toggles, sleep card, rolling strip, 3-of-6 scoring, streaks, edit window, both
+toggles, sleep card, rolling strip, 4-of-6 scoring, streaks, edit window, both
 themes.
 
 Phase 2 is the API, SQLite, invite-code onboarding, bearer tokens, push/pull

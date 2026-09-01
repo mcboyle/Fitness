@@ -50,6 +50,21 @@ class LifestyleDB extends Dexie {
       reactions: 'id, from_user_id, target_date, seen_at',
       sync_state: 'device_id, user_id',
     });
+
+    /*
+     * The default completion threshold moved from 3 to 4 after device testing.
+     * A default only applies to fresh installs, so nudge stores that still
+     * hold the old seeded value — anyone who deliberately picked something
+     * else keeps it.
+     */
+    this.version(2).upgrade(async (tx) =>
+      tx
+        .table('user_settings')
+        .toCollection()
+        .modify((row: { completion_threshold: number }) => {
+          if (row.completion_threshold === 3) row.completion_threshold = 4;
+        }),
+    );
   }
 }
 

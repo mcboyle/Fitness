@@ -15,11 +15,12 @@ function log(date: string, patch: Partial<DailyLog> = {}): DailyLog {
   return { ...emptyLog(date, null), ...patch };
 }
 
-/** Three of the six scored items: water, reading, self-care. */
+/** Four of the six scored items — the default threshold. */
 const complete = {
   water_oz: 80,
   pages_read: 20,
   self_care: true,
+  journaled: true,
 } satisfies Partial<DailyLog>;
 
 function history(entries: DailyLog[]) {
@@ -41,8 +42,14 @@ describe('scoring', () => {
 
   it('completes at the threshold, not at all six', () => {
     const day = log('2026-09-01', complete);
-    expect(scoreCount(day, settings)).toBe(3);
+    expect(scoreCount(day, settings)).toBe(4);
     expect(isDayComplete(day, settings)).toBe(true);
+  });
+
+  it('is incomplete one item under the threshold', () => {
+    const day = log('2026-09-01', { water_oz: 80, pages_read: 20, self_care: true });
+    expect(scoreCount(day, settings)).toBe(3);
+    expect(isDayComplete(day, settings)).toBe(false);
   });
 
   it('fills the steps ring in thirds from buckets, proportionally from exact', () => {
