@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { migrate } from './migrations';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -15,6 +16,10 @@ export function openDatabase(file = resolve(DATA_DIR, 'lifestyle.db')) {
 
   const db = new Database(file);
   db.exec(readFileSync(resolve(here, 'schema.sql'), 'utf8'));
+
+  // schema.sql only creates what is missing; migrations alter what exists.
+  migrate(db, (message) => console.log(message));
+
   return db;
 }
 

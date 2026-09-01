@@ -2,6 +2,8 @@ import type { Challenge, RingLayout, StepEntryMode, Theme, UserSettings } from '
 import { cx } from '../lib/cx';
 import { SCORED_ITEMS, SCORED_LABELS } from '@lifestyle/shared';
 import { APP_TIMEZONE, formatDayLabel, formatMinutes } from '@lifestyle/shared';
+import { useEffect, useState } from 'react';
+import { api } from '../api/client';
 import { Card, CardLabel, Chip } from './ui';
 
 interface SettingsSheetProps {
@@ -165,10 +167,7 @@ export function SettingsSheet({
           </p>
         </Card>
 
-        <p className="text-faint px-1 text-xs">
-          Phase 1 — local only. Nothing leaves this device and nothing is
-          synced yet.
-        </p>
+        <SignInCode />
       </div>
     </div>
   );
@@ -262,5 +261,55 @@ function Segmented<T extends string>({
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * The reusable sign-in code.
+ *
+ * This is the answer to the app asking for a code again after Add to Home
+ * Screen: iOS gives an installed web app its own storage, so the session never
+ * carries over from Safari, and the invite code was single-use.
+ */
+function SignInCode() {
+  const [code, setCode] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api<{ user: { sign_in_code: string | null } }>('/me')
+      .then((me) => !cancelled && setCode(me.user.sign_in_code))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <Card>
+      <CardLabel>Sign in on another device</CardLabel>
+      <p className="text-faint mb-3 text-xs">
+        Use this code to sign in again — on a new phone, or after adding the app
+        to your home screen. It works as many times as you need.
+      </p>
+
+      {code ? (
+        revealed ? (
+          <div className="font-display text-ink bg-sunken border-line rounded-2xl border py-3 text-center text-2xl font-extrabold tracking-widest">
+            {code}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setRevealed(true)}
+            className="text-accent text-sm font-semibold"
+          >
+            Show my code
+          </button>
+        )
+      ) : (
+        <p className="text-faint text-sm">Connect to the server to see your code.</p>
+      )}
+    </Card>
   );
 }

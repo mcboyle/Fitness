@@ -8,6 +8,7 @@ import { APP_TIMEZONE, today } from '@lifestyle/shared';
 import { type DB, openDatabase } from './db';
 import { ensureBootstrapUser, registerAuthRoutes } from './routes/auth';
 import { registerChallengeRoutes } from './routes/challenges';
+import { registerDevRoutes } from './routes/dev';
 import { registerMediaRoutes } from './routes/media';
 import { registerReactionRoutes } from './routes/reactions';
 import { registerSyncRoutes } from './routes/sync';
@@ -33,6 +34,12 @@ export function buildServer(db: DB = openDatabase()) {
   registerChallengeRoutes(app, db);
   registerMediaRoutes(app, db);
   registerReactionRoutes(app, db);
+
+  if (registerDevRoutes(app, db)) {
+    app.log.warn(
+      'DEV_TOKEN is set — impersonation of any user, including their private photos, is enabled. Unset it in the systemd unit to disable.',
+    );
+  }
 
   /*
    * Same origin: Fastify serves the built PWA alongside /api/*, so there is no
