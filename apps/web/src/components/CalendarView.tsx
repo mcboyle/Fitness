@@ -32,6 +32,7 @@ export function CalendarView({
   logs,
   pauses,
   settings,
+  startDate,
   days = 35,
 }: {
   myUserId: string;
@@ -41,6 +42,8 @@ export function CalendarView({
   logs: DailyLog[];
   pauses: PauseRow[];
   settings: UserSettings;
+  /** Days before the challenge began are not misses — they are not days yet. */
+  startDate?: IsoDate;
   days?: number;
 }) {
   const now = today();
@@ -87,14 +90,20 @@ export function CalendarView({
             </div>
             <div className="grid grid-cols-7 gap-1.5">
               {dates.map((date) => {
-                const state = dayState(rows.get(userId)?.get(date), settings, date, now);
+                const before = startDate ? date < startDate : false;
+                const state = before
+                  ? 'outside'
+                  : dayState(rows.get(userId)?.get(date), settings, date, now);
                 return (
                   <div
                     key={date}
-                    title={`${date} — ${state}`}
-                    aria-label={`${date}: ${state}`}
+                    title={`${date} — ${state === 'outside' ? 'before the challenge' : state}`}
+                    aria-label={`${date}: ${state === 'outside' ? 'before the challenge' : state}`}
                     className="aspect-square rounded-md"
-                    style={{ background: COLOURS[state], opacity: state === 'future' ? 0.3 : 1 }}
+                    style={{
+                      background: COLOURS[state],
+                      opacity: state === 'future' || state === 'outside' ? 0.35 : 1,
+                    }}
                   />
                 );
               })}
@@ -122,6 +131,7 @@ const COLOURS: Record<string, string> = {
   paused: 'var(--paused)',
   'in-progress': 'var(--ring-track)',
   future: 'var(--ring-track)',
+  outside: 'var(--ring-track)',
 };
 
 const LABELS: Record<string, string> = {

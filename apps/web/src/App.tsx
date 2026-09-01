@@ -175,6 +175,7 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
           logs={allLogs}
           pauses={pauses}
           settings={settings}
+          startDate={challenge?.start_date}
         />
       )}
 
