@@ -63,10 +63,46 @@ rollover depends on it firing.
 npm run purge-trash    # what it would remove, and what is still recoverable
 ```
 
-**Snapshots do not cover the images.** `snapshot.sh` copies the database, so the
-`media` rows survive a bad migration but the JPEGs do not survive a lost disk.
-Off-box Litestream (§12) would carry the database and still not the files —
-the photo directory needs its own copy.
+## Copying the photo store
+
+`scripts/backup-media.sh` mirrors `data/media`, `data/trash` and
+`data/snapshots`, and runs hourly from the `lifestyle-snapshot` timer.
+`snapshot.sh` copies only the database, so without this the `media` rows
+survive a bad migration while the images do not survive a lost disk — and
+photos are the one thing here nobody can retake.
+
+It also fixes a hazard in the reset procedure above: `data/snapshots` lives
+*inside* `data/`, so `rm -rf data` destroyed the backups along with the thing
+they were backing up. There is now a copy outside that directory.
+
+**Set a real destination.** The default is `~/fitness-media-backup` — outside
+`data/`, but the same disk, so it survives a wipe and not a disk failure. The
+script says so on every run. Anything rsync understands works:
+
+```
+# in /etc/systemd/system/lifestyle-snapshot.service
+Environment=MEDIA_BACKUP_DEST=user@nas:/volume1/fitness
+```
+
+```sh
+npm run backup-media                       # run it now
+MEDIA_BACKUP_DEST=/mnt/spare npm run backup-media
+```
+
+**Deletions propagate, on purpose.** The mirror uses `--delete`, so a photo
+purged after its thirty days does not survive in the backup. Retention would
+otherwise be a lie. This protects against losing the disk or wiping the
+directory; it is deliberately not a way around the archive window.
+
+### Restoring
+
+```sh
+rsync -a ~/fitness-media-backup/media/ /home/mboyle/fitness/data/media/
+```
+
+Verified: with the store deleted a signed URL returns 404, and after this
+command it serves 200 again. A row whose file is missing returns 404 rather
+than a server error, so a half-finished restore degrades honestly.
 
 ## Resetting the database
 

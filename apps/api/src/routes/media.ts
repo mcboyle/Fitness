@@ -1,4 +1,4 @@
-import { createWriteStream } from 'node:fs';
+import { createReadStream, createWriteStream, existsSync } from 'node:fs';
 import { mkdir, rename, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -183,10 +183,21 @@ export function registerMediaRoutes(app: FastifyInstance, db: DB) {
       // Re-check now, not at signing time: this is what makes unsharing bite.
       if (!visibleTo(row, v)) return reply.code(404).send({ error: 'no such photo' });
 
+      /*
+       * A row whose file is missing is a 404, not a 500. It happens for real:
+       * a restore that has not finished, or a photo store lost while the rows
+       * survived — and an unhandled stream error there took the request down
+       * with a server error instead of saying the photo is not there.
+       */
+      if (!existsSync(row!.storage_path)) {
+        request.log.warn(`media ${row!.id} has no file at ${row!.storage_path}`);
+        return reply.code(404).send({ error: 'the image file is missing' });
+      }
+
       return reply
         .header('content-type', mimeFor(row!.storage_path))
         .header('cache-control', 'private, no-store')
-        .send((await import('node:fs')).createReadStream(row!.storage_path));
+        .send(createReadStream(row!.storage_path));
     },
   );
 

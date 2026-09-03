@@ -1,13 +1,20 @@
 [Unit]
-Description=Snapshot the database and purge expired photo archive
+Description=Snapshot the database, purge expired archive, copy the photo store
 After=network.target
 
 [Service]
 Type=oneshot
 User=mboyle
 WorkingDirectory=/home/mboyle/fitness
+# It writes outside data/ on purpose.
+ReadWritePaths=/home/mboyle/fitness/data /home/mboyle
 ExecStart=/home/mboyle/fitness/scripts/snapshot.sh
 # Retention has to hold in both directions: recoverable for thirty days, and
 # actually gone after them. The API's lazy sweep only fires when someone
 # deletes something, which makes the window a floor rather than a promise.
 ExecStart=/usr/bin/node /home/mboyle/fitness/scripts/purge-trash.mjs
+# Photos are the one thing nobody can retake, and snapshot.sh does not cover
+# them. This also puts the database snapshots outside data/, which `rm -rf data`
+# would otherwise destroy along with the thing they were backing up.
+# Set MEDIA_BACKUP_DEST to a remote target to make it a real off-box copy.
+ExecStart=/bin/bash /home/mboyle/fitness/scripts/backup-media.sh

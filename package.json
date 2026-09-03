@@ -23,7 +23,8 @@
     "phase3": "node scripts/phase3test.mjs",
     "invite": "node scripts/invite.mjs",
     "tour": "node scripts/tour.mjs",
-    "purge-trash": "node scripts/purge-trash.mjs"
+    "purge-trash": "node scripts/purge-trash.mjs",
+    "backup-media": "bash scripts/backup-media.sh"
   },
   "devDependencies": {
     "oxlint": "^1.79.0",
