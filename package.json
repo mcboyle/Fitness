@@ -22,7 +22,8 @@
     "twophone": "node scripts/twophone.mjs",
     "phase3": "node scripts/phase3test.mjs",
     "invite": "node scripts/invite.mjs",
-    "tour": "node scripts/tour.mjs"
+    "tour": "node scripts/tour.mjs",
+    "purge-trash": "node scripts/purge-trash.mjs"
   },
   "devDependencies": {
     "oxlint": "^1.79.0",

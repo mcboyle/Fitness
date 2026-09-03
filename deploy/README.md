@@ -48,10 +48,25 @@ curl -s -X POST -H "x-dev-token: $DEV" localhost:8787/api/v1/dev/media/<id>/rest
 A restored photo comes back **private**, whatever it was before: sharing was a
 deliberate act and that consent does not survive a round trip through the bin.
 
-The purge runs lazily on the next delete rather than on a timer — there is no
-scheduler anywhere in this system (§7), and this is not a good reason to add
-the first one. A trashed photo therefore lingers until someone deletes another
-one, which is the safe direction to err.
+Retention holds in both directions: recoverable for thirty days, and actually
+gone after them. `scripts/purge-trash.mjs` runs from the hourly
+`lifestyle-snapshot` timer alongside the database snapshot. The API also sweeps
+when someone deletes a photo, but that alone made the window a floor rather
+than a promise — if nobody deleted anything for a year, a photo binned a year
+ago would still be on disk.
+
+That timer is operational housekeeping, not the application scheduling itself,
+so it does not breach §7's no-cron rule: nothing about a streak, a pause or a
+rollover depends on it firing.
+
+```sh
+npm run purge-trash    # what it would remove, and what is still recoverable
+```
+
+**Snapshots do not cover the images.** `snapshot.sh` copies the database, so the
+`media` rows survive a bad migration but the JPEGs do not survive a lost disk.
+Off-box Litestream (§12) would carry the database and still not the files —
+the photo directory needs its own copy.
 
 ## Resetting the database
 

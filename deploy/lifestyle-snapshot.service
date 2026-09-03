@@ -1,5 +1,5 @@
 [Unit]
-Description=Snapshot the Winter_Fitness_Tracker database
+Description=Snapshot the database and purge expired photo archive
 After=network.target
 
 [Service]
@@ -7,3 +7,7 @@ Type=oneshot
 User=mboyle
 WorkingDirectory=/home/mboyle/fitness
 ExecStart=/home/mboyle/fitness/scripts/snapshot.sh
+# Retention has to hold in both directions: recoverable for thirty days, and
+# actually gone after them. The API's lazy sweep only fires when someone
+# deletes something, which makes the window a floor rather than a promise.
+ExecStart=/usr/bin/node /home/mboyle/fitness/scripts/purge-trash.mjs
