@@ -57,6 +57,10 @@ identifiers — is stored as-is, on a volume that currently has neither
 encryption at rest nor an off-box backup. Stripping EXIF in the browser before
 upload is a small change if that trade stops being acceptable.
 
+Deleting a photo moves it to `data/trash/` for 30 days rather than unlinking
+it; `deploy/README.md` has the restore command. Progress photos are the one
+thing here nobody can retake.
+
 ## Backups — read this before trusting it
 
 `scripts/snapshot.sh` takes a timestamped, gzipped copy of the SQLite database

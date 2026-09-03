@@ -1,5 +1,5 @@
 import { createWriteStream } from 'node:fs';
-import { mkdir, unlink } from 'node:fs/promises';
+import { mkdir, rename, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import '@fastify/multipart';
@@ -8,6 +8,8 @@ import { authenticate } from '../auth';
 import { type DB, newId, nextSeq } from '../db';
 import {
   MEDIA_DIR,
+  TRASH_DIR,
+  TRASH_RETENTION_DAYS,
   extensionFor,
   mimeFor,
   signMediaUrl,
@@ -23,6 +25,7 @@ interface MediaRow {
   visibility: 'private' | 'shared';
   shared_at: string | null;
   created_at: string;
+  deleted_at: string | null;
 }
 
 /**
@@ -35,8 +38,31 @@ interface MediaRow {
  */
 function visibleTo(row: MediaRow | undefined, viewerId: string): boolean {
   if (!row) return false;
+  // A photo in the trash is not visible to anyone, its owner included. It is
+  // recoverable, which is not the same as available.
+  if (row.deleted_at) return false;
   if (row.user_id === viewerId) return true;
   return row.visibility === 'shared';
+}
+
+function expiryOf(deletedAt: string): string {
+  return new Date(
+    new Date(deletedAt).getTime() + TRASH_RETENTION_DAYS * 86_400_000,
+  ).toISOString();
+}
+
+/** Drops trashed photos past the retention window, file and row together. */
+export async function purgeExpiredTrash(db: DB): Promise<number> {
+  const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 86_400_000).toISOString();
+  const expired = db
+    .prepare('SELECT id, storage_path FROM media WHERE deleted_at IS NOT NULL AND deleted_at < ?')
+    .all(cutoff) as { id: string; storage_path: string }[];
+
+  for (const row of expired) {
+    await unlink(row.storage_path).catch(() => {});
+    db.prepare('DELETE FROM media WHERE id = ?').run(row.id);
+  }
+  return expired.length;
 }
 
 export function registerMediaRoutes(app: FastifyInstance, db: DB) {
@@ -170,7 +196,7 @@ export function registerMediaRoutes(app: FastifyInstance, db: DB) {
       .prepare(
         `SELECT id, user_id, taken_on, kind, visibility, shared_at, created_at
            FROM media
-          WHERE user_id = ? OR visibility = 'shared'
+          WHERE deleted_at IS NULL AND (user_id = ? OR visibility = 'shared')
           ORDER BY taken_on DESC`,
       )
       .all(request.user!.id) as Omit<MediaRow, 'storage_path'>[];
@@ -179,6 +205,11 @@ export function registerMediaRoutes(app: FastifyInstance, db: DB) {
     return { media: rows };
   });
 
+  /**
+   * Delete moves the file to the trash and stamps the row rather than removing
+   * either. A mis-tap on a progress photo is otherwise unrecoverable, and these
+   * are the one thing in the app nobody can retake.
+   */
   app.delete<{ Params: { id: string } }>(
     '/api/v1/media/:id',
     { preHandler: requireAuth },
@@ -186,13 +217,30 @@ export function registerMediaRoutes(app: FastifyInstance, db: DB) {
       const row = db.prepare('SELECT * FROM media WHERE id = ?').get(request.params.id) as
         | MediaRow
         | undefined;
-      if (!row || row.user_id !== request.user!.id) {
+      if (!row || row.user_id !== request.user!.id || row.deleted_at) {
         return reply.code(404).send({ error: 'no such photo' });
       }
 
-      await unlink(row.storage_path).catch(() => {});
-      db.prepare('DELETE FROM media WHERE id = ?').run(row.id);
-      return { deleted: row.id };
+      const trashDir = resolve(TRASH_DIR, row.user_id);
+      await mkdir(trashDir, { recursive: true });
+      const trashed = resolve(trashDir, row.storage_path.split('/').pop()!);
+
+      try {
+        await rename(row.storage_path, trashed);
+      } catch {
+        // Nothing on disk to move — still stamp the row so the state is honest.
+      }
+
+      const now = new Date().toISOString();
+      db.prepare(
+        'UPDATE media SET deleted_at = ?, storage_path = ?, visibility = ?, updated_at = ?, server_seq = ? WHERE id = ?',
+      ).run(now, trashed, 'private', now, nextSeq(db), row.id);
+
+      // Lazy retention sweep: no scheduler anywhere in this system (§7), so the
+      // purge rides on the next delete rather than a timer.
+      await purgeExpiredTrash(db);
+
+      return { deleted: row.id, recoverable_until: expiryOf(now) };
     },
   );
 }

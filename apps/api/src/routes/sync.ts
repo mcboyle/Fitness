@@ -36,6 +36,7 @@ function pull(db: DB, since: number, viewerId: string) {
    * owner included, because no client has any use for it.
    */
   rows.media = rows.media
+    .filter((row) => !row.deleted_at)
     .filter((row) => row.user_id === viewerId || row.visibility === 'shared')
     .map(({ storage_path: _path, thumb_path: _thumb, ...rest }) => rest);
 
@@ -45,7 +46,9 @@ function pull(db: DB, since: number, viewerId: string) {
    * was shared. Dates alone carry that, with no id and nothing fetchable.
    */
   const photoDays = db
-    .prepare('SELECT DISTINCT user_id, taken_on FROM media ORDER BY taken_on')
+    .prepare(
+      'SELECT DISTINCT user_id, taken_on FROM media WHERE deleted_at IS NULL ORDER BY taken_on',
+    )
     .all();
 
   /*

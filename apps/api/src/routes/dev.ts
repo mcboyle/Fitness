@@ -1,7 +1,11 @@
 import { timingSafeEqual } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { mkdir, rename } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { hashToken, mintToken } from '../auth';
-import { type DB, newId } from '../db';
+import { MEDIA_DIR, TRASH_RETENTION_DAYS } from '../media';
+import { type DB, newId, nextSeq } from '../db';
 
 /**
  * Development impersonation. **This is a master key to every account.**
@@ -70,6 +74,82 @@ export function registerDevRoutes(app: FastifyInstance, db: DB) {
     app.log.warn(`dev impersonation token issued for ${user.display_name}`);
     return { token, user };
   });
+
+  /**
+   * Recently deleted photos, so a mis-tap can be undone.
+   *
+   * Deliberately behind the dev token rather than exposed in the app: putting a
+   * trash bin in the UI means one tap can resurrect an image someone chose to
+   * get rid of, and the person who deleted it may have meant it. Restoring is a
+   * request someone makes out loud.
+   */
+  app.get('/api/v1/dev/media/trash', async (request, reply) => {
+    if (!authorised(request, reply)) return;
+
+    const rows = db
+      .prepare(
+        `SELECT m.id, m.taken_on, m.deleted_at, m.storage_path, u.display_name
+           FROM media m JOIN users u ON u.id = m.user_id
+          WHERE m.deleted_at IS NOT NULL
+          ORDER BY m.deleted_at DESC`,
+      )
+      .all() as {
+      id: string;
+      taken_on: string;
+      deleted_at: string;
+      storage_path: string;
+      display_name: string;
+    }[];
+
+    return {
+      retention_days: TRASH_RETENTION_DAYS,
+      trash: rows.map((row) => ({
+        id: row.id,
+        owner: row.display_name,
+        taken_on: row.taken_on,
+        deleted_at: row.deleted_at,
+        expires_at: new Date(
+          new Date(row.deleted_at).getTime() + TRASH_RETENTION_DAYS * 86_400_000,
+        ).toISOString(),
+        file_present: existsSync(row.storage_path),
+      })),
+    };
+  });
+
+  /** Put a photo back. It returns private, whatever it was before. */
+  app.post<{ Params: { id: string } }>(
+    '/api/v1/dev/media/:id/restore',
+    async (request, reply) => {
+      if (!authorised(request, reply)) return;
+
+      const row = db
+        .prepare('SELECT * FROM media WHERE id = ? AND deleted_at IS NOT NULL')
+        .get(request.params.id) as
+        | { id: string; user_id: string; storage_path: string }
+        | undefined;
+      if (!row) return reply.code(404).send({ error: 'nothing in the trash with that id' });
+
+      const restoredPath = resolve(MEDIA_DIR, row.user_id, row.storage_path.split('/').pop()!);
+      await mkdir(dirname(restoredPath), { recursive: true });
+      try {
+        await rename(row.storage_path, restoredPath);
+      } catch {
+        return reply.code(409).send({ error: 'the file is gone; only the row remains' });
+      }
+
+      const now = new Date().toISOString();
+      db.prepare(
+        'UPDATE media SET deleted_at = NULL, storage_path = ?, updated_at = ?, server_seq = ? WHERE id = ?',
+      ).run(restoredPath, now, nextSeq(db), row.id);
+
+      // Private on the way back: sharing was a deliberate act and consent does
+      // not survive a round trip through the bin (§9.1).
+      db.prepare("UPDATE media SET visibility = 'private', shared_at = NULL WHERE id = ?").run(row.id);
+
+      app.log.warn(`restored photo ${row.id} from trash`);
+      return { restored: row.id, visibility: 'private' };
+    },
+  );
 
   /** Drop every dev token without touching anyone's real sessions. */
   app.post('/api/v1/dev/revoke', async (request, reply) => {

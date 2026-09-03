@@ -28,6 +28,31 @@ TLS terminates at Cloudflare's edge, so nothing here manages a certificate. The
 app is same-origin — one hostname serves both the PWA and `/api/*`, so there is
 no CORS anywhere.
 
+## Recently deleted photos
+
+Deleting a progress photo moves the file to `data/trash/<user_id>/` and stamps
+`media.deleted_at` — it does not unlink the file or drop the row. Progress
+photos are the one thing in this app nobody can retake, so a mis-tap has to be
+recoverable. Recoverable for **30 days**, then purged file and row together.
+
+Restoring is behind `DEV_TOKEN` on purpose. A trash bin in the app would mean
+one tap can resurrect an image someone chose to get rid of, and they may have
+meant it — restoring should be a request someone makes out loud.
+
+```sh
+DEV=$(sudo grep -oP 'Environment=DEV_TOKEN=\K\S+' /etc/systemd/system/lifestyle-api.service)
+curl -s -H "x-dev-token: $DEV" localhost:8787/api/v1/dev/media/trash
+curl -s -X POST -H "x-dev-token: $DEV" localhost:8787/api/v1/dev/media/<id>/restore
+```
+
+A restored photo comes back **private**, whatever it was before: sharing was a
+deliberate act and that consent does not survive a round trip through the bin.
+
+The purge runs lazily on the next delete rather than on a timer — there is no
+scheduler anywhere in this system (§7), and this is not a good reason to add
+the first one. A trashed photo therefore lingers until someone deletes another
+one, which is the safe direction to err.
+
 ## Resetting the database
 
 `ProtectSystem=full` with `ReadWritePaths=/home/mboyle/fitness/data` means

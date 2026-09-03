@@ -84,6 +84,18 @@ const MIGRATIONS: Migration[] = [
       db.exec('ALTER TABLE measurements ADD COLUMN deleted_at TEXT');
     },
   },
+  {
+    version: 5,
+    name: 'recently-deleted photos',
+    up: (db) => {
+      /*
+       * Deleting a progress photo used to unlink the file and drop the row,
+       * which makes a mis-tap unrecoverable. The row now survives with a
+       * timestamp and the file moves to a trash directory.
+       */
+      db.exec('ALTER TABLE media ADD COLUMN deleted_at TEXT');
+    },
+  },
 ];
 
 export function migrate(db: DB, log: (message: string) => void = () => {}): number {

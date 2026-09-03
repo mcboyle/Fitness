@@ -11,6 +11,19 @@ import { DATA_DIR } from './db';
 export const MEDIA_DIR = resolve(DATA_DIR, 'media');
 
 /**
+ * Recently deleted photos. Kept out of MEDIA_DIR so nothing that walks the
+ * live store can serve them by accident.
+ */
+export const TRASH_DIR = resolve(DATA_DIR, 'trash');
+
+/**
+ * How long a deleted photo is recoverable. Long enough that "I deleted the
+ * wrong one" is fixable days later; short enough that it isn't an archive
+ * nobody consented to.
+ */
+export const TRASH_RETENTION_DAYS = 30;
+
+/**
  * Signing key for media URLs. Persisted so that a restart doesn't invalidate
  * every outstanding URL, and kept out of the database so a database copy alone
  * cannot mint links.
