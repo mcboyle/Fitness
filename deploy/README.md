@@ -158,6 +158,24 @@ the hashed name of the main bundle.
 an older bundle cannot run code it does not have; it needs one successful
 service-worker update first, which the cache headers above are what allow.
 
+### Forcing it by hand
+
+The build hash only moves when the client bundle does, so a server-only change
+gives a client nothing to notice. `npm run force-refresh` bumps a cache epoch
+in `data/cache-epoch`, which every client compares on load and on foreground —
+a higher number means drop all caches, unregister the worker and reload.
+
+```sh
+npm run force-refresh        # takes effect immediately; no restart
+curl -s localhost:8787/api/v1/version
+```
+
+The epoch is honoured ahead of the build check and is not subject to the
+once-per-tab guard, because the point of bumping it is that everyone acts.
+The new value is recorded in `localStorage` *before* reloading, which is what
+keeps that from becoming a loop. Sign-in survives — only caches and the service
+worker are cleared.
+
 ## Firewall
 
 `ufw` is active with `INPUT DROP` and port 22 alone allowed. The tunnel is

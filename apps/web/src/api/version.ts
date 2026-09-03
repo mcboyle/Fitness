@@ -16,6 +16,7 @@ function localBuild(): string | null {
 }
 
 const FORCED = 'lt.forced_update';
+const EPOCH = 'lt.cache_epoch';
 
 /**
  * Drops every cache and service worker, then reloads.
@@ -27,7 +28,11 @@ const FORCED = 'lt.forced_update';
 async function forceUpdate(): Promise<void> {
   if (sessionStorage.getItem(FORCED)) return;
   sessionStorage.setItem(FORCED, '1');
+  await dropCachesAndReload();
+}
 
+/** Deletes every cache, unregisters every worker, reloads. */
+async function dropCachesAndReload(): Promise<void> {
   try {
     if ('caches' in window) {
       await Promise.all((await caches.keys()).map((key) => caches.delete(key)));
@@ -50,17 +55,35 @@ export type VersionState = 'current' | 'stale';
  * which is the only case the UI needs to say anything about.
  */
 export async function checkVersion(): Promise<VersionState> {
-  const mine = localBuild();
-  if (!mine) return 'current'; // dev server: no hashed bundle to compare
-
-  let theirs: string | null = null;
+  let server: { build: string | null; epoch?: number };
   try {
-    theirs = (await api<{ build: string | null }>('/version', { auth: false })).build;
+    server = await api<{ build: string | null; epoch?: number }>('/version', { auth: false });
   } catch {
     return 'current'; // offline is not stale
   }
 
-  if (!theirs || theirs === mine) return 'current';
+  /*
+   * The epoch is a deliberate invalidation, so it is honoured before anything
+   * else and is not subject to the once-per-tab guard — the point of bumping
+   * it is that every client acts on it. Recording it *before* reloading is
+   * what stops that becoming a loop.
+   */
+  const serverEpoch = server.epoch ?? 0;
+  const seenEpoch = Number(localStorage.getItem(EPOCH) ?? 0);
+  if (serverEpoch > seenEpoch) {
+    try {
+      localStorage.setItem(EPOCH, String(serverEpoch));
+    } catch {
+      // Without storage this would repeat, so do not force at all.
+      return 'current';
+    }
+    await dropCachesAndReload();
+    return 'stale';
+  }
+
+  const mine = localBuild();
+  if (!mine) return 'current'; // dev server: no hashed bundle to compare
+  if (!server.build || server.build === mine) return 'current';
 
   if (sessionStorage.getItem(FORCED)) return 'stale';
   await forceUpdate();

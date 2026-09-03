@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APP_TIMEZONE, today } from '@lifestyle/shared';
-import { type DB, openDatabase } from './db';
+import { DATA_DIR, type DB, openDatabase } from './db';
 import { ensureBootstrapUser, registerAuthRoutes } from './routes/auth';
 import { registerChallengeRoutes } from './routes/challenges';
 import { registerDevRoutes } from './routes/dev';
@@ -40,7 +40,26 @@ export function buildServer(db: DB = openDatabase()) {
     }
   };
 
-  app.get('/api/v1/version', async () => ({ build: currentBuild() }));
+  /**
+   * A manual invalidation lever, separate from the build hash.
+   *
+   * The hash only changes when the client bundle does, so a server-only change
+   * — or a client sitting on something stale for any other reason — has nothing
+   * to notice. Bumping this file makes every client drop its caches on next
+   * load regardless.
+   */
+  const cacheEpoch = (): number => {
+    try {
+      return Number(readFileSync(resolve(DATA_DIR, 'cache-epoch'), 'utf8').trim()) || 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  app.get('/api/v1/version', async () => ({
+    build: currentBuild(),
+    epoch: cacheEpoch(),
+  }));
 
   app.get('/api/v1/health', async () => ({
     ok: true,
