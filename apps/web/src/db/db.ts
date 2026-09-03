@@ -37,6 +37,8 @@ class LifestyleDB extends Dexie {
   sync_state!: Table<SyncState, string>;
   /** Pending writes, oldest first. Drained by the sync engine. */
   outbox!: Table<OutboxOp, number>;
+  /** Dates a photo exists for, per member — no ids, nothing fetchable (§9.3). */
+  photo_days!: Table<{ user_id: string; taken_on: string }, [string, string]>;
 
   constructor() {
     super('lifestyle-tracker');
@@ -92,6 +94,9 @@ class LifestyleDB extends Dexie {
           row.dinner = healthy ? 'healthy' : null;
         }),
     );
+
+    // Dates a photo exists for, per member — the completion signal (§9.3).
+    this.version(5).stores({ photo_days: '[user_id+taken_on], user_id, taken_on' });
   }
 }
 

@@ -10,15 +10,18 @@ import {
   type MediaRow,
 } from '../api/media';
 import { cx } from '../lib/cx';
+import { sync } from '../api/sync';
 import { Icon } from './Icon';
 import { BigButton, Card } from './ui';
 
 export function PhotosView({
   myUserId,
   nameFor,
+  onUploaded,
 }: {
   myUserId: string;
   nameFor: (id: string) => string;
+  onUploaded: () => void;
 }) {
   const [media, setMedia] = useState<MediaRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +54,13 @@ export function PhotosView({
     try {
       await uploadPhoto(file, today());
       await refresh();
+      /*
+       * Pull straight away rather than waiting for the 60s tick: the photo's
+       * metadata row and the rolling "Photo 0/1" both come from the server, so
+       * without this the strip sits stale for up to a minute after an upload.
+       */
+      await sync();
+      onUploaded();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'upload failed');
     } finally {

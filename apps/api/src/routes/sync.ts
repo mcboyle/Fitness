@@ -15,6 +15,7 @@ const PULLED_TABLES = [
   'challenge_members',
   'pauses',
   'reactions',
+  'media',
 ] as const;
 
 function pull(db: DB, since: number, viewerId: string) {
@@ -26,10 +27,30 @@ function pull(db: DB, since: number, viewerId: string) {
   ) as Record<string, Record<string, unknown>[]>;
 
   /*
+   * §10 says to sync the metadata row — the bytes are what stay out of the
+   * payload. Without this the client's media table is always empty, so the rolling
+   * "Photo 0/1" never moved even after an upload.
+   *
+   * §9.2 still holds: another member's private row must not transmit at all,
+   * not even its id or storage path. `storage_path` is dropped from every row,
+   * owner included, because no client has any use for it.
+   */
+  rows.media = rows.media
+    .filter((row) => row.user_id === viewerId || row.visibility === 'shared')
+    .map(({ storage_path: _path, thumb_path: _thumb, ...rest }) => rest);
+
+  /*
+   * §9.3: the "photo taken ✓" stays visible to everyone regardless of the
+   * photo's visibility — they see the habit was kept, and the image only if it
+   * was shared. Dates alone carry that, with no id and nothing fetchable.
+   */
+  const photoDays = db
+    .prepare('SELECT DISTINCT user_id, taken_on FROM media ORDER BY taken_on')
+    .all();
+
+  /*
    * A reaction on a private photo would otherwise disclose that the photo
-   * exists — the one thing §9.2 says must never reach the partner. Photos
-   * themselves never travel in the sync payload at all (§10); they have their
-   * own endpoint.
+   * exists — the one thing §9.2 says must never reach the partner.
    */
   rows.reactions = rows.reactions.filter((reaction) => {
     if (reaction.target_kind !== 'photo' || !reaction.target_media_id) return true;
@@ -39,7 +60,7 @@ function pull(db: DB, since: number, viewerId: string) {
     return !!media && (media.user_id === viewerId || media.visibility === 'shared');
   });
 
-  return { cursor: currentSeq(db), server_date: today(), rows };
+  return { cursor: currentSeq(db), server_date: today(), rows, photo_days: photoDays };
 }
 
 export function registerSyncRoutes(app: FastifyInstance, db: DB) {

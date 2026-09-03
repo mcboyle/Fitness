@@ -1,4 +1,4 @@
-import type { DailyLog, Documentary, Media } from './types';
+import type { DailyLog, Documentary } from './types';
 import { lastSevenDays, type IsoDate } from './time';
 
 /**
@@ -23,7 +23,12 @@ export interface RollingWindow {
 export function rollingWindow(
   logs: DailyLog[],
   documentaries: Documentary[],
-  media: Media[],
+  /**
+   * Dates a photo was taken, not the photos themselves. §9.3 keeps the
+   * "photo taken ✓" visible to everyone even when the image is private, so the
+   * count has to come from something that carries no artifact.
+   */
+  photoDays: { taken_on: IsoDate }[],
   end: IsoDate,
 ): RollingWindow {
   const dates = lastSevenDays(end);
@@ -34,6 +39,6 @@ export function rollingWindow(
     dates,
     workouts: logs.filter((l) => inWindow(l.date) && l.workout_minutes > 0).length,
     documentaries: documentaries.filter((d) => !d.deleted_at && inWindow(d.watched_on)).length,
-    photos: media.filter((m) => inWindow(m.taken_on)).length,
+    photos: photoDays.filter((d) => inWindow(d.taken_on)).length,
   };
 }

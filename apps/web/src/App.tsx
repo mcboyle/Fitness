@@ -37,7 +37,7 @@ import {
   useDocumentaries,
   useLog,
   useLogHistory,
-  useMedia,
+  usePhotoDays,
   useSettings,
   useStreak,
   useThemeAttribute,
@@ -136,7 +136,7 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
 
   const window7 = lastSevenDays(date);
   const documentaries = useDocumentaries(window7[0], date);
-  const media = useMedia(window7[0], date);
+  const photoDays = usePhotoDays(window7[0], date);
 
   const locked = !isEditable(date, today);
 
@@ -188,11 +188,11 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
       window: rollingWindow(
         logs.filter((l) => l.user_id === id),
         documentaries.filter((d) => d.user_id === id),
-        media.filter((m) => m.user_id === id),
+        photoDays.filter((d) => d.user_id === id),
         date,
       ),
     }));
-  }, [byDate, partnerLogs, documentaries, media, date, session.user_id, members]);
+  }, [byDate, partnerLogs, documentaries, photoDays, date, session.user_id, members]);
 
   /*
    * A short burst each time a single ring closes, and a long one when all nine
@@ -313,7 +313,11 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
       )}
 
       {view === 'photos' && (
-        <PhotosView myUserId={session.user_id} nameFor={nameFor} />
+        <PhotosView
+          myUserId={session.user_id}
+          nameFor={nameFor}
+          onUploaded={() => setCelebrating({ intensity: 'small', key: Date.now() })}
+        />
       )}
 
       {view === 'body' && <BodyView myUserId={session.user_id} />}

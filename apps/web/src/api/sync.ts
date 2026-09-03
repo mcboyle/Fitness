@@ -110,8 +110,20 @@ async function applyServerRows(payload: SyncPayload) {
       db.challenge_members,
       db.pauses,
       db.reactions,
+      db.media,
+      db.photo_days,
     ],
     async () => {
+      /*
+       * Replaced wholesale rather than merged: the server sends the full set
+       * each time and a deleted photo has no tombstone, so merging would leave
+       * a removed day counting toward the rolling goal forever.
+       */
+      if (Array.isArray(payload.photo_days)) {
+        await db.photo_days.clear();
+        await db.photo_days.bulkPut(payload.photo_days);
+      }
+
       for (const [table, list] of Object.entries(rows)) {
         if (!Array.isArray(list) || list.length === 0) continue;
         const target = (db as unknown as Record<string, { bulkPut: (r: unknown[]) => Promise<unknown> }>)[table];

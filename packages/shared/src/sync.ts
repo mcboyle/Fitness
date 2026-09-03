@@ -41,7 +41,10 @@ export interface SyncPayload {
     challenges: unknown[];
     challenge_members: unknown[];
     pauses: unknown[];
+    media: unknown[];
   };
+  /** Dates only: the completion signal without the artifact (§9.3). */
+  photo_days: { user_id: string; taken_on: IsoDate }[];
   rejected: SyncRejection[];
 }
 

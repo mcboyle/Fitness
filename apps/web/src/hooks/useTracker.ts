@@ -100,10 +100,14 @@ export function useDocumentaries(from: IsoDate, to: IsoDate) {
   );
 }
 
-export function useMedia(from: IsoDate, to: IsoDate) {
+/**
+ * Dates a photo exists for, everyone included. §9.3 keeps the "photo taken ✓"
+ * visible even when the image itself is private, so this carries dates only.
+ */
+export function usePhotoDays(from: IsoDate, to: IsoDate) {
   return (
     useLiveQuery(
-      () => db.media.where('taken_on').between(from, to, true, true).toArray(),
+      () => db.photo_days.where('taken_on').between(from, to, true, true).toArray(),
       [from, to],
     ) ?? []
   );
