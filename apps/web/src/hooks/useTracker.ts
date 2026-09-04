@@ -101,6 +101,23 @@ export function useDocumentaries(from: IsoDate, to: IsoDate) {
 }
 
 /**
+ * Everyone's logs across a trailing window.
+ *
+ * Distinct from useLogHistory, which is deliberately one person's — the streak
+ * and the x/9 counter must never mix members. The rolling 7-day goals are the
+ * opposite case: they are shown per member, so the window has to contain
+ * everybody's rows.
+ *
+ * Building those goals from "my history plus the partner's row for today" made
+ * a partner's workout vanish the moment the date rolled over, because only one
+ * of their days was ever in scope.
+ */
+export function useLogsInWindow(end: IsoDate, days: number) {
+  const from = addDays(end, -(days - 1));
+  return useLiveQuery(() => logsBetween(from, end), [from, end]) ?? [];
+}
+
+/**
  * Dates a photo exists for, everyone included. §9.3 keeps the "photo taken ✓"
  * visible even when the image itself is private, so this carries dates only.
  */

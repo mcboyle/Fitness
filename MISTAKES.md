@@ -385,6 +385,35 @@ reword.
 
 ---
 
+## 15. A partner's weekly goals only ever saw one day
+
+**Symptom.** A workout logged on Wednesday showed in the partner's "Workouts
+1/4" that day and read 0/4 from Thursday onward. Your own row was always right.
+
+**Cause.** The rolling windows were built from `[...byDate.values(),
+...partnerLogs]`. `byDate` is your own history over 14 days — correct — but
+`partnerLogs` queries `daily_log.where('date').equals(date)`, a **single day**.
+So every other member's 7-day window contained exactly one day, and anything
+earned earlier disappeared the moment the date rolled over.
+
+The data was never missing. The client held the row locally the whole time; it
+just wasn't in scope for the calculation.
+
+**Fix.** `useLogsInWindow(end, days)` returns everyone's logs across the
+window. Deliberately separate from `useLogHistory`, which stays per-user
+because the streak and the x/9 counter must never mix members — the rolling
+goals are the opposite case, shown per member and needing everybody's rows.
+
+**Why nothing caught it.** Every harness logs and asserts within one day, so a
+window bug that only appears after midnight cannot show up. `scripts/
+phase3test.mjs` now backdates a partner's workout two days and asserts it still
+counts.
+
+**Rule.** Anything scoped to a window of days needs a test where the data is
+*not* from today. Same-day tests cannot see date arithmetic at all.
+
+---
+
 ## Toolchain snags
 
 Low-value individually; recorded so they aren't rediscovered.

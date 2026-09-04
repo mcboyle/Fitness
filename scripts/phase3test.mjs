@@ -64,6 +64,34 @@ console.log('8 shared calendar    :', (await cal.innerText()).replace(/\n/g,' | 
 const cells=await cal.locator('div[aria-label]').count();
 console.log('9 both rows rendered :', cells>0 && cells%7===0 ? `PASS - ${cells} cells across ${cells/7} week-rows` : `*** FAIL cells=${cells} ***`);
 
+/*
+ * A rolling goal earned on an EARLIER day must still count, for both people.
+ * The partner's window used to be built from their row for the selected date
+ * alone, so a workout vanished from their weekly count the moment the date
+ * rolled over — invisible in any same-day test.
+ */
+{
+  const Database = (await import('better-sqlite3')).default;
+  const db = new Database(process.env.TEST_DB ?? 'data/lifestyle.db');
+  const twoDaysAgo = new Date(Date.now() - 2 * 864e5).toISOString().slice(0, 10);
+  const seq = () => { db.prepare('UPDATE sync_seq SET n = n + 1').run();
+    return db.prepare('SELECT n FROM sync_seq').get().n; };
+  const her = await B.p.evaluate(() => JSON.parse(localStorage.getItem('lt.session')).user_id);
+  db.prepare(`INSERT OR REPLACE INTO daily_log
+      (user_id,date,workout_minutes,workout_type,updated_at,server_seq)
+      VALUES (?,?,45,'pilates',?,?)`)
+    .run(her, twoDaysAgo, new Date().toISOString(), seq());
+  db.close();
+
+  await A.p.reload({ waitUntil: 'networkidle' });
+  await A.p.waitForSelector('[data-testid=day-header]');
+  await A.p.waitForTimeout(3500);
+  const strip = (await A.p.locator('section').filter({ hasText: 'Last 7 days' }).first().innerText())
+    .replace(/\n+/g, ' | ');
+  const herRow = strip.slice(strip.indexOf('Her'));
+  console.log('W1 partner workout 2d ago:', /Workouts \| 1\/4/.test(herRow) ? 'PASS - counts across days' : '*** FAIL: ' + herRow.slice(0, 60) + ' ***');
+}
+
 // --- reactions: she reacts to his day, he sees it on next open
 await B.p.getByRole('button',{name:'Today'}).click(); await B.p.waitForTimeout(1500);
 const bar = B.p.getByRole('button',{name:/React .* to Matthew's day/});

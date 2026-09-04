@@ -124,6 +124,11 @@ verifying anything that writes, assert the sync footer reads "Synced" and
 re-query the API — two tables silently failed to sync for exactly this reason
 (MISTAKES.md #9).
 
+**`useLogHistory` is one person's; `useLogsInWindow` is everyone's.** The
+streak and the x/9 counter must never mix members; the rolling 7-day goals are
+shown per member and need every member's rows. Mixing these up made a partner's
+workout vanish the day after they did it (MISTAKES.md #15).
+
 **Each user writes only their own rows.** That is what removes the entire class
 of concurrent-edit conflicts and lets last-write-wins be correct (§10). The
 server enforces it; don't add a path that writes the partner's rows.

@@ -37,6 +37,7 @@ import {
   useDocumentaries,
   useLog,
   useLogHistory,
+  useLogsInWindow,
   usePhotoDays,
   useSettings,
   useStreak,
@@ -177,8 +178,9 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
   const [inboxDismissed, setInboxDismissed] = useState(false);
 
   /** One rolling window per member — these goals are mutually visible (§1). */
+  const windowLogs = useLogsInWindow(date, 7);
   const rollingWindows = useMemo(() => {
-    const logs = [...byDate.values(), ...partnerLogs];
+    const logs = windowLogs;
     const people = [
       { id: session.user_id, name: 'You' },
       ...members.map((m) => ({ id: m.id, name: m.display_name })),
@@ -192,7 +194,7 @@ function Tracker({ onSignOut }: { onSignOut: () => void }) {
         date,
       ),
     }));
-  }, [byDate, partnerLogs, documentaries, photoDays, date, session.user_id, members]);
+  }, [windowLogs, documentaries, photoDays, date, session.user_id, members]);
 
   /*
    * A short burst each time a single ring closes, and a long one when all nine
